@@ -21,18 +21,18 @@ $(BUILD)/kernel.o: kernel/kernel.cpp
 $(BUILD)/kernel.bin: $(BUILD)/boot.o $(BUILD)/kernel.o
 	$(LD) $(LDFLAGS) -o $(BUILD)/kernel.bin $(BUILD)/boot.o $(BUILD)/kernel.o
 
-TantrumsOS.iso: $(BUILD)/kernel.bin
+iso/TantrumsOS.iso: $(BUILD)/kernel.bin
 	mkdir -p iso/boot/grub
 	cp $(BUILD)/kernel.bin iso/boot/
 	echo 'set timeout=0' > iso/boot/grub/grub.cfg
 	echo 'set default=0' >> iso/boot/grub/grub.cfg
 	echo 'menuentry "TantrumsOS" { multiboot /boot/kernel.bin }' >> iso/boot/grub/grub.cfg
-	grub-mkrescue -o TantrumsOS.iso iso
+	grub-mkrescue -o iso/TantrumsOS.iso iso
 
-run: TantrumsOS.iso
-	qemu-system-x86_64 -cdrom TantrumsOS.iso
+run: iso/TantrumsOS.iso
+	qemu-system-x86_64 -cdrom iso/TantrumsOS.iso
 
 clean:
-	rm -rf $(BUILD) iso TantrumsOS.iso
+	rm -rf $(BUILD) iso
 
 .PHONY: all run clean
