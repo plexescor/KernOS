@@ -8,7 +8,7 @@ OBJCOPY := objcopy
 CFLAGS  := \
     -ffreestanding -fno-stack-protector -fno-stack-check \
     -fno-lto -fno-PIC -fno-PIE \
-    -m64 -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone \
+    -m64 -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel \
     -std=c11 -Wall -Wextra -O2 \
     -Iinclude -Ilimine
 
@@ -22,15 +22,15 @@ LDFLAGS  := \
 
 # Sources & objects
 SRCS_C   := src/kernel/kernel.c \
-			src/framebuffer/framebuffer.c \
-			src/libc/libc.c
+            src/framebuffer/framebuffer.c \
+            src/libc/libc.c
 SRCS_ASM := src/boot/boot.asm
 
 OBJS := build/kernel/kernel.o \
         build/framebuffer/framebuffer.o \
         build/libc/libc.o \
         build/boot/boot.asm.o \
-        fonts/JetBrainsMono-Regular.o
+        fonts/font.o
 
 # Targets
 .PHONY: all iso run clean
@@ -42,13 +42,11 @@ build/kernel.elf: $(OBJS) linker.ld | build
 	$(LD) $(LDFLAGS) $(OBJS) -o $@
 
 # Compile C
-
 build/%.o: src/%.c | build
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Convert JetBrainsMono-Regular binary to an ELF64 object file
-# The symbols will be based on the output filename context: fonts_JetBrainsMono-Regular_bin
-fonts/JetBrainsMono-Regular.o: fonts/JetBrainsMono-Regular.bin | build
+# Embed PSF font
+fonts/font.o: fonts/font.psf
 	$(OBJCOPY) -I binary -O elf64-x86-64 -B i386:x86-64 $< $@
 
 # Assemble
@@ -57,19 +55,18 @@ build/boot/boot.asm.o: src/boot/boot.asm | build
 
 build:
 	mkdir -p $(dir $(OBJS))
-	mkdir -p build/kernel build/boot
 
 # ISO
 iso: build/kernel.elf
 	mkdir -p isoRoot/boot/limine
 	mkdir -p isoRoot/EFI/BOOT
-	cp build/kernel.elf            isoRoot/boot/kernel.elf
+	cp build/kernel.elf             isoRoot/boot/kernel.elf
 	cp limine.conf                  isoRoot/boot/limine/limine.conf
-	cp limine/limine-bios.sys      isoRoot/boot/limine/
-	cp limine/limine-bios-cd.bin   isoRoot/boot/limine/
-	cp limine/limine-uefi-cd.bin   isoRoot/boot/limine/
-	cp limine/BOOTX64.EFI          isoRoot/EFI/BOOT/BOOTX64.EFI
-	cp limine/BOOTIA32.EFI         isoRoot/EFI/BOOT/BOOTIA32.EFI
+	cp limine/limine-bios.sys       isoRoot/boot/limine/
+	cp limine/limine-bios-cd.bin    isoRoot/boot/limine/
+	cp limine/limine-uefi-cd.bin    isoRoot/boot/limine/
+	cp limine/BOOTX64.EFI           isoRoot/EFI/BOOT/BOOTX64.EFI
+	cp limine/BOOTIA32.EFI          isoRoot/EFI/BOOT/BOOTIA32.EFI
 	xorriso -as mkisofs \
 	    -b boot/limine/limine-bios-cd.bin \
 	    -no-emul-boot -boot-load-size 4 -boot-info-table \
@@ -81,12 +78,12 @@ iso: build/kernel.elf
 run: iso
 	cp /usr/share/edk2/x64/OVMF_VARS.4m.fd ./MY_VARS.fd
 	qemu-system-x86_64 \
-		-machine q35 \
-		-drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd \
-		-drive if=pflash,format=raw,file=./MY_VARS.fd \
-		-cdrom TantrumsOS.iso \
-		-m 1G \
-		-monitor stdio
+	    -machine q35 \
+	    -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd \
+	    -drive if=pflash,format=raw,file=./MY_VARS.fd \
+	    -cdrom TantrumsOS.iso \
+	    -m 1G \
+	    -monitor stdio
 
 clean:
 	rm -rf build isoRoot TantrumsOS.iso

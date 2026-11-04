@@ -46,7 +46,17 @@ bool __framebuffer_checkFramebuffer()
     return true;
 }
 
-struct limine_framebuffer* __framebuffer_getFramebuffer()
+struct limine_framebuffer* __framebuffer_getFramebuffer(uint64_t index)
 {
-    
+    return framebufferRequest.response->framebuffers[index];
+}
+
+uint64_t __framebuffer_getFramebufferPitch(struct limine_framebuffer* fb)
+{
+    return fb->pitch;
+}
+
+uint64_t __framebuffer_getFramebufferCount()
+{
+    return framebufferRequest.response->framebuffer_count;
 }
