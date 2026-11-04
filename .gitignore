@@ -1,3 +1,5 @@
 build
 iso
 *.iso
+isoRoot/
+MY_VARS.fd

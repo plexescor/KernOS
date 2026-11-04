@@ -15,7 +15,7 @@ extern char _binary_fonts_font_psf_size[];
 void __libc_putChar(uint16_t c, size_t cX, size_t cY, uint32_t fg, uint32_t bg)
 {
     PSF_font *font = (PSF_font*)&_binary_fonts_font_psf_start;
-
+    
     uint8_t* glyph =
         (uint8_t*)&_binary_fonts_font_psf_start +
         font->headersize +
