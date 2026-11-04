@@ -2,6 +2,7 @@
 CC      := gcc
 AS      := nasm
 LD      := ld
+OBJCOPY := objcopy
 
 # Flags
 CFLAGS  := \
@@ -20,10 +21,16 @@ LDFLAGS  := \
     -T linker.ld
 
 # Sources & objects
-SRCS_C   := src/kernel/kernel.c
+SRCS_C   := src/kernel/kernel.c \
+			src/framebuffer/framebuffer.c \
+			src/libc/libc.c
 SRCS_ASM := src/boot/boot.asm
 
-OBJS     := build/kernel/kernel.o build/boot/boot.asm.o
+OBJS := build/kernel/kernel.o \
+        build/framebuffer/framebuffer.o \
+        build/libc/libc.o \
+        build/boot/boot.asm.o \
+        fonts/JetBrainsMono-Regular.o
 
 # Targets
 .PHONY: all iso run clean
@@ -35,14 +42,21 @@ build/kernel.elf: $(OBJS) linker.ld | build
 	$(LD) $(LDFLAGS) $(OBJS) -o $@
 
 # Compile C
-build/kernel/kernel.o: src/kernel/kernel.c | build
+
+build/%.o: src/%.c | build
 	$(CC) $(CFLAGS) -c $< -o $@
+
+# Convert JetBrainsMono-Regular binary to an ELF64 object file
+# The symbols will be based on the output filename context: fonts_JetBrainsMono-Regular_bin
+fonts/JetBrainsMono-Regular.o: fonts/JetBrainsMono-Regular.bin | build
+	$(OBJCOPY) -I binary -O elf64-x86-64 -B i386:x86-64 $< $@
 
 # Assemble
 build/boot/boot.asm.o: src/boot/boot.asm | build
 	$(AS) $(ASFLAGS) $< -o $@
 
 build:
+	mkdir -p $(dir $(OBJS))
 	mkdir -p build/kernel build/boot
 
 # ISO
