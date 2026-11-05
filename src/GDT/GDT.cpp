@@ -20,7 +20,7 @@ struct [[gnu::packed]] GDTDescriptor
 static GDTEntry gdt[6];
 static GDTDescriptor gdtr;
 
-static void set_entry(int i, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags) 
+static void setEntry(int i, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags) 
 {
     gdt[i].limitLow   = limit & 0xFFFF;
     gdt[i].baseLow    = base & 0xFFFF;
@@ -35,17 +35,17 @@ extern "C" void gdtLoad(GDTDescriptor* gdtr);
 void GDT::init() 
 {
     // null
-    set_entry(0, 0, 0,       0x00, 0x0);
+    setEntry(0, 0, 0,       0x00, 0x0);
     // kernel code (ring 0, 64-bit)
-    set_entry(1, 0, 0xFFFFF, 0x9A, 0xA);
+    setEntry(1, 0, 0xFFFFF, 0x9A, 0xA);
     // kernel data (ring 0)
-    set_entry(2, 0, 0xFFFFF, 0x92, 0xC);
+    setEntry(2, 0, 0xFFFFF, 0x92, 0xC);
     // user data   (ring 3)
-    set_entry(3, 0, 0xFFFFF, 0xF2, 0xC);
+    setEntry(3, 0, 0xFFFFF, 0xF2, 0xC);
     // user code   (ring 3, 64-bit)
-    set_entry(4, 0, 0xFFFFF, 0xFA, 0xA);
+    setEntry(4, 0, 0xFFFFF, 0xFA, 0xA);
     // null placeholder for TSS (fill later)
-    set_entry(5, 0, 0,       0x00, 0x0);
+    setEntry(5, 0, 0,       0x00, 0x0);
 
     gdtr.size   = sizeof(gdt) - 1;
     gdtr.offset = (uint64_t)&gdt;
