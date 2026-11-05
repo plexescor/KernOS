@@ -24,13 +24,17 @@ LDFLAGS := \
 # Sources & objects
 SRCS_CXX := src/kernel/kernel.cpp \
              src/framebuffer/framebuffer.cpp \
-             src/TTY/TTY.cpp
-SRCS_ASM := src/boot/boot.asm
+             src/TTY/TTY.cpp \
+			 src/GDT/GDT.cpp
+SRCS_ASM := src/boot/boot.asm \
+			 src/GDT/GDT.asm
 
 OBJS := build/kernel/kernel.o \
         build/framebuffer/framebuffer.o \
         build/TTY/TTY.o \
         build/boot/boot.asm.o \
+		build/GDT/GDT.o \
+		build/GDT/GDT.asm.o \
         fonts/font.o
 
 # Targets
@@ -52,6 +56,10 @@ fonts/font.o: fonts/font.psf
 
 # Assemble
 build/boot/boot.asm.o: src/boot/boot.asm | build
+	$(AS) $(ASFLAGS) $< -o $@
+
+# Assemble
+build/GDT/GDT.asm.o: src/GDT/GDT.asm | build
 	$(AS) $(ASFLAGS) $< -o $@
 
 build:
