@@ -25,9 +25,11 @@ LDFLAGS := \
 SRCS_CXX := src/kernel/kernel.cpp \
              src/framebuffer/framebuffer.cpp \
              src/TTY/TTY.cpp \
-			 src/GDT/GDT.cpp
+			 src/GDT/GDT.cpp \
+			 src/IDT/IDT.cpp
 SRCS_ASM := src/boot/boot.asm \
-			 src/GDT/GDT.asm
+			 src/GDT/GDT.asm \
+			 src/IDT/IDT.asm
 
 OBJS := build/kernel/kernel.o \
         build/framebuffer/framebuffer.o \
@@ -35,6 +37,8 @@ OBJS := build/kernel/kernel.o \
         build/boot/boot.asm.o \
 		build/GDT/GDT.o \
 		build/GDT/GDT.asm.o \
+		build/IDT/IDT.o \
+        build/IDT/IDT.asm.o \
         fonts/font.o
 
 # Targets
@@ -60,6 +64,10 @@ build/boot/boot.asm.o: src/boot/boot.asm | build
 
 # Assemble
 build/GDT/GDT.asm.o: src/GDT/GDT.asm | build
+	$(AS) $(ASFLAGS) $< -o $@
+
+# Assemble
+build/IDT/IDT.asm.o: src/IDT/IDT.asm | build
 	$(AS) $(ASFLAGS) $< -o $@
 
 build:

@@ -1,6 +1,7 @@
 #include "framebuffer/framebuffer.hpp"
 #include "TTY/TTY.hpp"
 #include "GDT/GDT.hpp"
+#include "IDT/IDT.hpp"
 
 static void halt()
 {
@@ -14,6 +15,9 @@ static void halt()
 extern "C" void kernelMain()
 {
     GDT::init();
+    IDT::init();
+    __asm__("sti");
+
     if (!Framebuffer::checkFramebuffer())
     {
         halt();
