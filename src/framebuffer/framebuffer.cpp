@@ -1,9 +1,8 @@
-#include <stdint.h>
-#include <stddef.h>
-#include <stdbool.h>
+#include <cstdint>
+#include <cstddef>
 
 #include "limine.h"
-#include "framebuffer/framebuffer.h"
+#include "framebuffer/framebuffer.hpp"
 
 __attribute__((used, section(".limine_requests_start")))
 volatile LIMINE_REQUESTS_START_MARKER;
@@ -22,7 +21,7 @@ __attribute__((used, section(".limine_requests_end")))
 volatile LIMINE_REQUESTS_END_MARKER;
 
 
-bool __framebuffer_checkFramebuffer()
+bool Framebuffer::checkFramebuffer()
 {
     // Ensure we got a framebuffer.
     if (framebufferRequest.response == NULL
@@ -46,17 +45,17 @@ bool __framebuffer_checkFramebuffer()
     return true;
 }
 
-struct limine_framebuffer* __framebuffer_getFramebuffer(uint64_t index)
+struct limine_framebuffer* Framebuffer::getFramebuffer(uint64_t index)
 {
     return framebufferRequest.response->framebuffers[index];
 }
 
-uint64_t __framebuffer_getFramebufferPitch(struct limine_framebuffer* fb)
+uint64_t Framebuffer::getFramebufferPitch(struct limine_framebuffer* fb)
 {
     return fb->pitch;
 }
 
-uint64_t __framebuffer_getFramebufferCount()
+uint64_t Framebuffer::getFramebufferCount()
 {
     return framebufferRequest.response->framebuffer_count;
 }

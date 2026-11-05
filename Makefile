@@ -1,34 +1,35 @@
 # Toolchain
-CC      := gcc
+CXX     := g++
 AS      := nasm
 LD      := ld
 OBJCOPY := objcopy
 
 # Flags
-CFLAGS  := \
+CXXFLAGS := \
     -ffreestanding -fno-stack-protector -fno-stack-check \
     -fno-lto -fno-PIC -fno-PIE \
+    -fno-exceptions -fno-rtti \
     -m64 -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel \
-    -std=c11 -Wall -Wextra -O2 \
+    -std=c++23 -Wall -Wextra -O2 \
     -Iinclude -Ilimine
 
-ASFLAGS  := -f elf64
+ASFLAGS := -f elf64
 
-LDFLAGS  := \
+LDFLAGS := \
     -nostdlib -static -m elf_x86_64 \
     -z max-page-size=0x1000 \
     -no-pie \
     -T linker.ld
 
 # Sources & objects
-SRCS_C   := src/kernel/kernel.c \
-            src/framebuffer/framebuffer.c \
-            src/libc/libc.c
+SRCS_CXX := src/kernel/kernel.cpp \
+             src/framebuffer/framebuffer.cpp \
+             src/TTY/TTY.cpp
 SRCS_ASM := src/boot/boot.asm
 
 OBJS := build/kernel/kernel.o \
         build/framebuffer/framebuffer.o \
-        build/libc/libc.o \
+        build/TTY/TTY.o \
         build/boot/boot.asm.o \
         fonts/font.o
 
@@ -41,9 +42,9 @@ all: build/kernel.elf
 build/kernel.elf: $(OBJS) linker.ld | build
 	$(LD) $(LDFLAGS) $(OBJS) -o $@
 
-# Compile C
-build/%.o: src/%.c | build
-	$(CC) $(CFLAGS) -c $< -o $@
+# Compile C++
+build/%.o: src/%.cpp | build
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Embed PSF font
 fonts/font.o: fonts/font.psf

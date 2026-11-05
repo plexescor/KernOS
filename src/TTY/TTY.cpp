@@ -1,10 +1,10 @@
-#include "libc/libc.h"
+#include "TTY/TTY.hpp"
 #include "limine.h"
-#include "fonts/PSFfonts.h"
-#include "framebuffer/framebuffer.h"
+#include "fonts/PSFfonts.hpp"
+#include "framebuffer/framebuffer.hpp"
 
-#include <stdint.h>
-#include <stddef.h>
+#include <cstdint>
+#include <cstddef>
 
 extern char _binary_fonts_font_psf_start[];
 extern char _binary_fonts_font_psf_end[];
@@ -12,7 +12,7 @@ extern char _binary_fonts_font_psf_size[];
 
 #define PIXEL uint32_t
 
-void __libc_putChar(uint16_t c, size_t cX, size_t cY, uint32_t fg, uint32_t bg)
+void TTY::putChar(uint16_t c, size_t cX, size_t cY, uint32_t fg, uint32_t bg)
 {
     PSF_font *font = (PSF_font*)&_binary_fonts_font_psf_start;
     
@@ -24,8 +24,8 @@ void __libc_putChar(uint16_t c, size_t cX, size_t cY, uint32_t fg, uint32_t bg)
        we only do this once, and adjust the offset later. This is faster. */
 	
 	// Hardcode the index for now
-	struct limine_framebuffer* fb = __framebuffer_getFramebuffer(0);
-	uint64_t pitch = __framebuffer_getFramebufferPitch(fb);
+	struct limine_framebuffer* fb = Framebuffer::getFramebuffer(0);
+	uint64_t pitch = Framebuffer::getFramebufferPitch(fb);
 	uint8_t* base = (uint8_t*)fb->address;
     int offsets =
         (cY * font->height * pitch) +
@@ -60,7 +60,7 @@ void __libc_putChar(uint16_t c, size_t cX, size_t cY, uint32_t fg, uint32_t bg)
     }
 }
 
-void __libc_putString(const char* str, size_t startX, size_t startY, uint32_t fg, uint32_t bg)
+void TTY::putString(const char* str, size_t startX, size_t startY, uint32_t fg, uint32_t bg)
 {
     size_t x = startX;
     size_t y = startY;
@@ -74,7 +74,7 @@ void __libc_putString(const char* str, size_t startX, size_t startY, uint32_t fg
         }
         else
         {
-            __libc_putChar((uint16_t)*str, x, y, fg, bg);
+            TTY::putChar((uint16_t)*str, x, y, fg, bg);
             x++;
         }
         str++;
