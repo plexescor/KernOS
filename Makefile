@@ -89,8 +89,8 @@ iso: build/kernel.elf
 	    -no-emul-boot -boot-load-size 4 -boot-info-table \
 	    --efi-boot boot/limine/limine-uefi-cd.bin \
 	    -efi-boot-part --efi-boot-image --protective-msdos-label \
-	    isoRoot -o NullOS.iso
-	./limine/limine bios-install NullOS.iso
+	    isoRoot -o KernOS.iso
+	./limine/limine bios-install KernOS.iso
 
 run: iso
 	cp /usr/share/edk2/x64/OVMF_VARS.4m.fd ./MY_VARS.fd
@@ -98,9 +98,9 @@ run: iso
 	    -machine q35 \
 	    -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd \
 	    -drive if=pflash,format=raw,file=./MY_VARS.fd \
-	    -cdrom NullOS.iso \
+	    -cdrom KernOS.iso \
 	    -m 1G \
 	    -monitor stdio
 
 clean:
-	rm -rf build isoRoot NullOS.iso
+	rm -rf build isoRoot KernOS.iso
