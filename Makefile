@@ -22,32 +22,32 @@ LDFLAGS := \
     -T linker.ld
 
 # Sources & objects
-SRCS_CXX := src/kernel/kernel.cpp \
-             src/framebuffer/framebuffer.cpp \
+SRCS_CXX := src/Kernel/Kernel.cpp \
+             src/Framebuffer/Framebuffer.cpp \
              src/TTY/TTY.cpp \
 			 src/GDT/GDT.cpp \
 			 src/IDT/IDT.cpp
-SRCS_ASM := src/boot/boot.asm \
+SRCS_ASM := src/Boot/Boot.asm \
 			 src/GDT/GDT.asm \
 			 src/IDT/IDT.asm
 
-OBJS := build/kernel/kernel.o \
-        build/framebuffer/framebuffer.o \
+OBJS := build/Kernel/Kernel.o \
+        build/Framebuffer/Framebuffer.o \
         build/TTY/TTY.o \
-        build/boot/boot.asm.o \
+        build/Boot/Boot.asm.o \
 		build/GDT/GDT.o \
 		build/GDT/GDT.asm.o \
 		build/IDT/IDT.o \
         build/IDT/IDT.asm.o \
-        fonts/font.o
+        Fonts/Font.o
 
 # Targets
 .PHONY: all iso run clean
 
-all: build/kernel.elf
+all: build/Kernel.elf
 
 # Link
-build/kernel.elf: $(OBJS) linker.ld | build
+build/Kernel.elf: $(OBJS) linker.ld | build
 	$(LD) $(LDFLAGS) $(OBJS) -o $@
 
 # Compile C++
@@ -55,11 +55,11 @@ build/%.o: src/%.cpp | build
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Embed PSF font
-fonts/font.o: fonts/font.psf
+Fonts/Font.o: Fonts/Font.psf
 	$(OBJCOPY) -I binary -O elf64-x86-64 -B i386:x86-64 $< $@
 
 # Assemble
-build/boot/boot.asm.o: src/boot/boot.asm | build
+build/Boot/Boot.asm.o: src/Boot/Boot.asm | build
 	$(AS) $(ASFLAGS) $< -o $@
 
 # Assemble
@@ -74,10 +74,10 @@ build:
 	mkdir -p $(dir $(OBJS))
 
 # ISO
-iso: build/kernel.elf
+iso: build/Kernel.elf
 	mkdir -p isoRoot/boot/limine
 	mkdir -p isoRoot/EFI/BOOT
-	cp build/kernel.elf             isoRoot/boot/kernel.elf
+	cp build/Kernel.elf             isoRoot/boot/Kernel.elf
 	cp limine.conf                  isoRoot/boot/limine/limine.conf
 	cp limine/limine-bios.sys       isoRoot/boot/limine/
 	cp limine/limine-bios-cd.bin    isoRoot/boot/limine/

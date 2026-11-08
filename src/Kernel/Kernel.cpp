@@ -1,4 +1,4 @@
-#include "framebuffer/framebuffer.hpp"
+#include "Framebuffer/Framebuffer.hpp"
 #include "TTY/TTY.hpp"
 #include "GDT/GDT.hpp"
 #include "IDT/IDT.hpp"

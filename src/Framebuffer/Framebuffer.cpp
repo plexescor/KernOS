@@ -2,7 +2,7 @@
 #include <cstddef>
 
 #include "limine.h"
-#include "framebuffer/framebuffer.hpp"
+#include "Framebuffer/Framebuffer.hpp"
 
 __attribute__((used, section(".limine_requests_start")))
 volatile LIMINE_REQUESTS_START_MARKER;
@@ -25,23 +25,23 @@ bool Framebuffer::checkFramebuffer()
 {
     // Ensure we got a framebuffer.
     if (framebufferRequest.response == NULL
-     	|| framebufferRequest.response->framebuffer_count < 1) 
+     	|| framebufferRequest.response->framebuffer_count < 1)
 	{
         return false;
     }
 
     // Print the pattern to every framebuffer.
-    for (uint64_t i = 0; i < framebufferRequest.response->framebuffer_count; i++) 
+    for (uint64_t i = 0; i < framebufferRequest.response->framebuffer_count; i++)
 	{
         struct limine_framebuffer* framebuffer = framebufferRequest.response->framebuffers[i];
 
         // Ensure the framebuffer has 32-bit RGB pixels, the only kind we handle.
-        if (framebuffer->memory_model != LIMINE_FRAMEBUFFER_RGB || framebuffer->bpp != 32) 
+        if (framebuffer->memory_model != LIMINE_FRAMEBUFFER_RGB || framebuffer->bpp != 32)
 		{
             return false;
         }
     }
-    
+
     return true;
 }
 

@@ -1,28 +1,28 @@
 #include "TTY/TTY.hpp"
 #include "limine.h"
-#include "fonts/PSFfonts.hpp"
-#include "framebuffer/framebuffer.hpp"
+#include "Fonts/PSFfonts.hpp"
+#include "Framebuffer/Framebuffer.hpp"
 
 #include <cstdint>
 #include <cstddef>
 
-extern char _binary_fonts_font_psf_start[];
-extern char _binary_fonts_font_psf_end[];
-extern char _binary_fonts_font_psf_size[];
+extern char _binary_Fonts_Font_psf_start[];
+extern char _binary_Fonts_Font_psf_end[];
+extern char _binary_Fonts_Font_psf_size[];
 
 #define PIXEL uint32_t
 
 void TTY::putChar(uint16_t c, size_t cX, size_t cY, uint32_t fg, uint32_t bg)
 {
-    PSF_font *font = (PSF_font*)&_binary_fonts_font_psf_start;
-    
+    PSF_font *font = (PSF_font*)&_binary_Fonts_Font_psf_start;
+
     uint8_t* glyph =
-        (uint8_t*)&_binary_fonts_font_psf_start +
+        (uint8_t*)&_binary_Fonts_Font_psf_start +
         font->headersize +
         (c>0&&c<font->numglyph?c:0)*font->bytesperglyph;
     /* calculate the upper left corner on screen where we want to display.
        we only do this once, and adjust the offset later. This is faster. */
-	
+
 	// Hardcode the index for now
 	struct limine_framebuffer* fb = Framebuffer::getFramebuffer(0);
 	uint64_t pitch = Framebuffer::getFramebufferPitch(fb);
