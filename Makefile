@@ -26,7 +26,10 @@ SRCS_CXX := src/Kernel/Kernel.cpp \
              src/Framebuffer/Framebuffer.cpp \
              src/TTY/TTY.cpp \
 			 src/GDT/GDT.cpp \
-			 src/IDT/IDT.cpp
+			 src/IDT/IDT.cpp \
+			 src/IO/PortIO.cpp \
+			 src/CPU/APIC.cpp \
+			 src/CPU/MSR.cpp
 SRCS_ASM := src/Boot/Boot.asm \
 			 src/GDT/GDT.asm \
 			 src/IDT/IDT.asm
@@ -39,6 +42,9 @@ OBJS := build/Kernel/Kernel.o \
 		build/GDT/GDT.asm.o \
 		build/IDT/IDT.o \
         build/IDT/IDT.asm.o \
+        build/IO/PortIO.o \
+        build/CPU/APIC.o \
+        build/CPU/MSR.o \
         Fonts/Font.o
 
 # Targets
@@ -52,6 +58,7 @@ build/Kernel.elf: $(OBJS) linker.ld | build
 
 # Compile C++
 build/%.o: src/%.cpp | build
+	mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Embed PSF font
