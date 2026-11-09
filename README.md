@@ -1,6 +1,7 @@
 # KernOS
 
 > I want this OS to be daily drivable
+
 A from-scratch x86-64 operating system written in C++23 and NASM. No Linux base, no existing kernel. Built entirely from bare metal up.
 
 The goal is a modern, clean-slate OS with no legacy baggage. No 40 years of POSIX duct tape, no backwards compatibility constraints from 1978. Every design decision is made knowing what we know in 2026.
