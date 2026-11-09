@@ -4,6 +4,8 @@
 #include "IDT/IDT.hpp"
 #include "CPU/APIC.hpp"
 
+#include "Memory/PhysicalMemoryManager.hpp"
+
 static void halt()
 {
 	while (true)
@@ -11,6 +13,30 @@ static void halt()
 		__asm__ ("hlt");
 
 	}
+}
+
+#include <stdint.h>
+
+const char* uint64ToString(uint64_t value, char* bufferOut, int bufferSize) {
+    if (bufferSize < 21) {
+        return "";
+    }
+
+    int index = bufferSize - 1;
+    bufferOut[index] = '\0';
+
+    if (value == 0) {
+        bufferOut[--index] = '0';
+        return &bufferOut[index];
+    }
+
+    while (value > 0) {
+        index--;
+        bufferOut[index] = '0' + (value % 10);
+        value /= 10;
+    }
+
+    return &bufferOut[index];
 }
 
 extern "C" void kernelMain()
@@ -45,7 +71,14 @@ extern "C" void kernelMain()
     // 33 in decimal
     CPU::APIC::IOAPICSetupKeyboard(0x21, 0);
 
+    TTY::putString("Bringing PhysicalMemoryManager to life...\n", fg, bg);
     TTY::putString("Welcome to KernOS! Try typing...\n", fg, bg);
 
+    PhysicalMemoryManager pmm;
+
+    uint64_t memory = pmm.allocFrame_PMM();
+    pmm.freeFrame_PMM(memory);
+
+    TTY::putString("Welcome to KernOS! Try typing...\n", fg, bg);
     while (true) {}
 }

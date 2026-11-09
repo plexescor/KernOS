@@ -30,7 +30,9 @@ SRCS_CXX := src/Kernel/Kernel.cpp \
 			 src/IO/PortIO.cpp \
 			 src/IO/Keyboard.cpp \
 			 src/CPU/APIC.cpp \
-			 src/CPU/MSR.cpp
+			 src/CPU/MSR.cpp \
+			 src/Memory/PhysicalMemoryManager.cpp \
+			 src/Libc/Memory.cpp
 SRCS_ASM := src/Boot/Boot.asm \
 			 src/GDT/GDT.asm \
 			 src/IDT/IDT.asm
@@ -47,6 +49,8 @@ OBJS := build/Kernel/Kernel.o \
         build/IO/Keyboard.o \
         build/CPU/APIC.o \
         build/CPU/MSR.o \
+        build/Memory/PhysicalMemoryManager.o \
+        build/Libc/Memory.o \
         Fonts/Font.o
 
 # Targets
@@ -108,7 +112,7 @@ run: iso
 	    -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd \
 	    -drive if=pflash,format=raw,file=./MY_VARS.fd \
 	    -cdrom KernOS.iso \
-	    -m 1G \
+	    -m 2G \
 	    -monitor stdio
 
 clean:
