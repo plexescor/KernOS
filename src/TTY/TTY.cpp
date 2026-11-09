@@ -60,17 +60,16 @@ void TTY::putChar(uint16_t c, size_t cX, size_t cY, uint32_t fg, uint32_t bg)
     }
 }
 
-void TTY::putString(const char* str, size_t startX, size_t startY, uint32_t fg, uint32_t bg)
+static size_t y = 0;
+static size_t x = 0;
+void TTY::putString(const char* str,  uint32_t fg, uint32_t bg)
 {
-    size_t x = startX;
-    size_t y = startY;
-
     while (*str)
     {
         if (*str == '\n')
         {
             y++;          // move down one character row
-            x = startX;  // reset to left margin
+            x = 0;  // reset to left margin
         }
         else
         {

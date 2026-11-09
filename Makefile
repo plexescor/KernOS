@@ -28,6 +28,7 @@ SRCS_CXX := src/Kernel/Kernel.cpp \
 			 src/GDT/GDT.cpp \
 			 src/IDT/IDT.cpp \
 			 src/IO/PortIO.cpp \
+			 src/IO/Keyboard.cpp \
 			 src/CPU/APIC.cpp \
 			 src/CPU/MSR.cpp
 SRCS_ASM := src/Boot/Boot.asm \
@@ -43,6 +44,7 @@ OBJS := build/Kernel/Kernel.o \
 		build/IDT/IDT.o \
         build/IDT/IDT.asm.o \
         build/IO/PortIO.o \
+        build/IO/Keyboard.o \
         build/CPU/APIC.o \
         build/CPU/MSR.o \
         Fonts/Font.o

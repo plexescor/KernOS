@@ -1,4 +1,6 @@
 #include "IDT/IDT.hpp"
+#include "CPU/APIC.hpp"
+#include "IO/Keyboard.hpp"
 
 struct [[gnu::packed]] IDTEntry {
     uint16_t offsetLow;    // handler address bits 0-15
@@ -10,7 +12,7 @@ struct [[gnu::packed]] IDTEntry {
     uint32_t reserved;     // always 0
 };
 
-struct [[gnu::packed]] IDTDescriptor 
+struct [[gnu::packed]] IDTDescriptor
 {
     uint16_t size;
     uint64_t offset;
@@ -19,7 +21,7 @@ struct [[gnu::packed]] IDTDescriptor
 static IDTEntry idt[256];
 static IDTDescriptor idtr;
 
-static void setEntry(int i, uint64_t handler, uint8_t flags) 
+static void setEntry(int i, uint64_t handler, uint8_t flags)
 {
     idt[i].offsetLow  = handler & 0xFFFF;
     idt[i].selector   = 0x08;
@@ -30,7 +32,7 @@ static void setEntry(int i, uint64_t handler, uint8_t flags)
     idt[i].reserved   = 0;
 }
 
-extern "C" 
+extern "C"
 {
     void isrDivideByZero();
     void isrDebug();
@@ -49,16 +51,20 @@ extern "C"
 
 extern "C" void idtLoad(IDTDescriptor* idtr);
 
-extern "C" void isrHandler(uint64_t isrNum, uint64_t errorCode) {
-    (void)isrNum;
-    (void)errorCode;
-    while (true) 
+extern "C" void isrHandler(uint64_t isrNum, uint64_t errorCode)
+{
+    if (isrNum == 0x21)
     {
-        __asm__("hlt");
+        IO::Keyboard::handleKeyboardInterrupt();
+    }
+    else
+    {
+        // Just do this for now
+        CPU::APIC::LAPICEOI();
     }
 }
-    
-void IDT::init() 
+
+void IDT::init()
 {
     setEntry(0, (uint64_t)isrDivideByZero,  0x8E);
     setEntry(1, (uint64_t)isrDebug, 0x8E);

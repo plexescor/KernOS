@@ -5,7 +5,7 @@ void CPU::MSR::getMSR(uint32_t address, uint32_t* eax, uint32_t* edx)
 {
     __asm__ (
         "rdmsr"
-        : "=a"(eax), "=d"(edx)
+        : "=a"(*eax), "=d"(*edx)
         : "c"(address)
     );
 }
