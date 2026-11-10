@@ -4,6 +4,28 @@
 
 #define HEAP_MIN_SPLIT 32ULL
 
+void* operator new(uint64_t size)
+{
+    return Libc::Memory::kmalloc(size);
+}
+
+void operator delete(void* ptr)
+{
+    Libc::Memory::kfree(ptr);
+}
+
+void operator delete(void* ptr, uint64_t size)
+{
+    (void)size;
+    Libc::Memory::kfree(ptr);
+}
+
+void operator delete[](void* ptr, uint64_t size)
+{
+    (void)size;
+    Libc::Memory::kfree(ptr);
+}
+
 static Libc::Memory::BlockHeader* headBlock = nullptr;
 
 void Libc::Memory::kmemset(void* address, uint8_t value, size_t size)

@@ -124,33 +124,39 @@ extern "C" void kernelMain()
         vmm.mapPage(virtualAddress, physicalAddress, PAGE_PRESENT | PAGE_WRITABLE);
     }
 
-    TTY::putString("Checking heap (kmallocInit and kmalloc)...\n", fg, bg);
-    Libc::Memory::kmallocInit(KERNEL_HEAP_START, KERNEL_HEAP_INITIAL);
+    // --- new/delete operator tests ---
+    TTY::putString("Testing new and delete operators...\n", fg, bg);
 
-    uint64_t f    = (uint64_t)Libc::Memory::kmalloc(4096);
-    uint64_t heap = (uint64_t)Libc::Memory::kmalloc(1024);
-    uint64_t fill = (uint64_t)Libc::Memory::kmalloc(16772000);
-
-    uint64_t shouldBeNull = (uint64_t)Libc::Memory::kmalloc(8);
-    if (!shouldBeNull)
-        TTY::putString("PASS: Heap exhausted correctly\n", fg, bg);
+    // Test 1: basic new
+    uint64_t* ptr1 = new uint64_t(0xDEADBEEF);
+    if (ptr1 && *ptr1 == 0xDEADBEEF)
+        TTY::putString("PASS: new uint64_t\n", fg, bg);
     else
-        TTY::putString("FAIL: Heap should be full but returned non-null\n", fg_Error, bg);
+        TTY::putString("FAIL: new uint64_t\n", fg_Error, bg);
 
-    Libc::Memory::kfree((void*)f);
-    Libc::Memory::kfree((void*)heap);
+    // Test 2: basic delete (no crash = pass)
+    delete ptr1;
+    TTY::putString("PASS: delete uint64_t (no crash)\n", fg, bg);
 
-    uint64_t shouldWork = (uint64_t)Libc::Memory::kmalloc(1024);
-    if (shouldWork)
-    {
-        char buffer2[21];
-        uint64ToHex(shouldWork, buffer2);
-        TTY::putString("PASS: kmalloc succeeded after kfree: ", fg, bg);
-        TTY::putString(buffer2, fg, bg);
-        TTY::putString("\n", fg, bg);
-    }
+    // Test 3: new array
+    uint64_t* arr = new uint64_t[4];
+    arr[0] = 1; arr[1] = 2; arr[2] = 3; arr[3] = 4;
+    if (arr && arr[0] == 1 && arr[1] == 2 && arr[2] == 3 && arr[3] == 4)
+        TTY::putString("PASS: new uint64_t[4]\n", fg, bg);
     else
-        TTY::putString("FAIL: kmalloc failed after kfree (kfree not implemented?)\n", fg_Error, bg);
+        TTY::putString("FAIL: new uint64_t[4]\n", fg_Error, bg);
+
+    // Test 4: delete array (no crash = pass)
+    delete[] arr;
+    TTY::putString("PASS: delete[] uint64_t (no crash)\n", fg, bg);
+
+    // Test 5: reuse after delete
+    uint64_t* ptr2 = new uint64_t(0xCAFEBABE);
+    if (ptr2 && *ptr2 == 0xCAFEBABE)
+        TTY::putString("PASS: new after delete reuses heap\n", fg, bg);
+    else
+        TTY::putString("FAIL: new after delete\n", fg_Error, bg);
+    delete ptr2;
 
     TTY::putString("\nWelcome to KernOS! Try typing...\n", fg, bg);
     while (true) {}

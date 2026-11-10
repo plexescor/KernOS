@@ -2,6 +2,10 @@
 #include <cstdint>
 #include <cstddef>
 
+void* operator new(uint64_t size);
+void operator delete(void* ptr, uint64_t size);
+void* operator new[](uint64_t size);
+void operator delete[](void* ptr, uint64_t size);
 namespace Libc
 {
     namespace Memory
