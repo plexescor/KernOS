@@ -6,7 +6,7 @@
 #include "CPU/APIC.hpp"
 #include "Memory/PhysicalMemoryManager.hpp"
 #include "Memory/VirtualMemoryManager.hpp"
-
+#include "IO/PortIO.hpp"
 #include "limine.h"
 #define KERNEL_HEAP_START     0xFFFFB00000000000
 #define KERNEL_HEAP_INITIAL   (1024 * 1024 * 16)
@@ -79,20 +79,6 @@ extern "C" void kernelMain()
     TTY::putString("Initialising IDT...\n", fg, bg);
     IDT::init();
 
-    TTY::putString("Enabling Interrupts...\n", fg, bg);
-    __asm__("sti");
-
-    TTY::putString("Intialising LAPIC...\n", fg, bg);
-    if (!CPU::APIC::initialiseLAPIC())
-    {
-        TTY::putString("Critical Error: Core hardware does not support LAPIC.\nThe system will halt...", fg_Error, bg);
-        halt();
-    }
-
-    TTY::putString("Setting up Keyboard Interrupts...\n", fg, bg);
-    // 33 in decimal
-    CPU::APIC::IOAPICSetupKeyboard(0x21, 0);
-
     TTY::putString("Bringing PhysicalMemoryManager to life...\n", fg, bg);
     // TTY::putString("Welcome to KernOS! Try typing...\n", fg, bg);
 
@@ -108,6 +94,22 @@ extern "C" void kernelMain()
     TTY::putString("\nBringing VirtualMemoryManager to life...\n", fg, bg);
     struct limine_hhdm_response* hddmResponse = pmm.getHDDM();
     VirtualMemoryManager vmm(&pmm, memoryMap, hddmResponse);
+
+    CPU::APIC::setVMM(&vmm);
+    TTY::putString("Intialising LAPIC...\n", fg, bg);
+    if (!CPU::APIC::initialiseLAPIC())
+    {
+        TTY::putString("Critical Error: Core hardware does not support LAPIC.\nThe system will halt...", fg_Error, bg);
+        halt();
+    }
+
+    TTY::putString("Setting up Keyboard Interrupts...\n", fg, bg);
+    // 33 in decimal
+    CPU::APIC::IOAPICSetupKeyboard(0x21, 0);
+
+    __asm__("sti");
+
+
 
     TTY::putString("Mapping heap memory...\n", fg, bg);
 
@@ -127,6 +129,7 @@ extern "C" void kernelMain()
     // --- new/delete operator tests ---
     TTY::putString("Testing new and delete operators...\n", fg, bg);
 
+    Libc::Memory::kmallocInit(KERNEL_HEAP_START, KERNEL_HEAP_INITIAL);
     // Test 1: basic new
     uint64_t* ptr1 = new uint64_t(0xDEADBEEF);
     if (ptr1 && *ptr1 == 0xDEADBEEF)
@@ -159,5 +162,5 @@ extern "C" void kernelMain()
     delete ptr2;
 
     TTY::putString("\nWelcome to KernOS! Try typing...\n", fg, bg);
-    while (true) {}
+    while (true) { __asm__("hlt"); }
 }

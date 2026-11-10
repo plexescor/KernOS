@@ -115,7 +115,8 @@ run: iso
 	    -drive if=pflash,format=raw,file=./MY_VARS.fd \
 	    -cdrom KernOS.iso \
 	    -m 2G \
-	    -monitor stdio
+	    -monitor stdio \
+		-display gtk,grab-on-hover=on
 
 clean:
 	rm -rf build isoRoot KernOS.iso

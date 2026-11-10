@@ -13,7 +13,15 @@ void operator delete(void* ptr)
 {
     Libc::Memory::kfree(ptr);
 }
+void* operator new[](uint64_t size)
+{
+    return Libc::Memory::kmalloc(size);
+}
 
+void operator delete[](void* ptr)
+{
+    Libc::Memory::kfree(ptr);
+}
 void operator delete(void* ptr, uint64_t size)
 {
     (void)size;

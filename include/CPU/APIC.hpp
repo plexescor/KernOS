@@ -1,10 +1,13 @@
 #pragma once
+#include "Memory/VirtualMemoryManager.hpp"
 #include <cstdint>
 namespace CPU
 {
     namespace APIC
     {
+        void setVMM(VirtualMemoryManager* vmm);
         void disableLegacyPIC();
+        void mapMMIO(uint64_t physBase, uint64_t size);
         void enableLAPICGlobally();
         bool checkLAPICSupport();
         bool initialiseLAPIC();

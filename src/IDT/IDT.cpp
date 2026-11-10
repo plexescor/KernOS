@@ -1,7 +1,7 @@
 #include "IDT/IDT.hpp"
 #include "CPU/APIC.hpp"
 #include "IO/Keyboard.hpp"
-
+#include "TTY/TTY.hpp"
 struct [[gnu::packed]] IDTEntry {
     uint16_t offsetLow;    // handler address bits 0-15
     uint16_t selector;     // kernel code selector (0x08)
@@ -53,13 +53,14 @@ extern "C" void idtLoad(IDTDescriptor* idtr);
 
 extern "C" void isrHandler(uint64_t isrNum, uint64_t errorCode)
 {
+    (void)errorCode;
+    // TTY::putString("Found interrupt", 0x00FF00, 0x000000);
     if (isrNum == 0x21)
     {
         IO::Keyboard::handleKeyboardInterrupt();
     }
     else
     {
-        // Just do this for now
         CPU::APIC::LAPICEOI();
     }
 }

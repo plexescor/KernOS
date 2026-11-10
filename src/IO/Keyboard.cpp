@@ -77,8 +77,12 @@ void IO::Keyboard::handleKeyboardInterrupt()
     uint8_t scanCode = Port::inb(KEYBOARD_IO_PORT);
     // If its not a release scanCode
     char c = IO::Keyboard::translateScanCode(scanCode);
-    char translated[2] = { c, '\0' };
-    TTY::putString(translated, 0xFFFFFF, 0x000000);
+    // TTY::putString("K", 0x00FF00, 0x000000);
+    if (c != '\0')
+    {
+        char translated[2] = { c, '\0' };
+        TTY::putString(translated, 0x00FF00, 0x000000);
+    }
 
     // Tell we handled it
     CPU::APIC::LAPICEOI();

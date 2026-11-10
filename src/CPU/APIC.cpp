@@ -30,6 +30,24 @@
 #define IOAPICARB 0x02
 #define IOAPICREDTBL(n) (0x10 + 2 * n)
 
+
+static VirtualMemoryManager* vmm = nullptr;
+
+void CPU::APIC::setVMM(VirtualMemoryManager* v)
+{
+    vmm = v;
+}
+
+void CPU::APIC::mapMMIO(uint64_t physBase, uint64_t size)
+{
+    uint64_t pages = (size + 4095) / 4096;
+    for (uint64_t i = 0; i < pages; i++)
+    {
+        uint64_t addr = physBase + i * 4096;
+        vmm->mapPage(addr, addr, PAGE_PRESENT | PAGE_WRITABLE | PAGE_CACHE_DISABLE);
+    }
+}
+
 void CPU::APIC::disableLegacyPIC()
 {
     IO::Port::outb(PIC1_DATA, 0xFF);
@@ -57,7 +75,8 @@ bool CPU::APIC::initialiseLAPIC()
     if (!CPU::APIC::checkLAPICSupport()) return false;
     CPU::APIC::enableLAPICGlobally();
 
-    // TODO: Add this to Page (vmem)
+    mapMMIO(LAPIC_BASE, 4096);
+    mapMMIO(IOAPIC_BASE, 4096);
 
     volatile uint32_t* spuriousReg = (volatile uint32_t*)(LAPIC_BASE + SPURIOUS_VECTOR_REG);
 
@@ -101,4 +120,13 @@ void CPU::APIC::IOAPICSetupKeyboard(uint8_t IDTVector, uint8_t LAPICID)
     // Keyboard is Pin-1
     writeIOAPIC(IOAPICREDTBL(1), lowBits);
     writeIOAPIC(IOAPICREDTBL(1) + 1, highBits);
+
+    IO::Port::inb(0x61);
+
+    // Drain any pending scancodes from the PS/2 buffer
+    while (IO::Port::inb(0x64) & 0x1)
+        IO::Port::inb(0x60);
+
+    // Clear any stuck LAPIC interrupt
+    CPU::APIC::LAPICEOI();
 }
