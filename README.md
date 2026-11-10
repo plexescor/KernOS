@@ -20,7 +20,7 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 - PSF2 bitmap font renderer on Limine framebuffer
 - TTY with global cursor state and newline handling
 - Physical memory manager using a bitmap allocator over Limine's memory map
-- Port I/O
+- Port I/O (inb and outb currently)
 - MSR read and write
 
 **In progress:**

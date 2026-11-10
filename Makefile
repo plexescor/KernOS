@@ -32,6 +32,7 @@ SRCS_CXX := src/Kernel/Kernel.cpp \
 			 src/CPU/APIC.cpp \
 			 src/CPU/MSR.cpp \
 			 src/Memory/PhysicalMemoryManager.cpp \
+			 src/Memory/VirtualMemoryManager.cpp \
 			 src/Libc/Memory.cpp
 SRCS_ASM := src/Boot/Boot.asm \
 			 src/GDT/GDT.asm \
@@ -50,6 +51,7 @@ OBJS := build/Kernel/Kernel.o \
         build/CPU/APIC.o \
         build/CPU/MSR.o \
         build/Memory/PhysicalMemoryManager.o \
+        build/Memory/VirtualMemoryManager.o \
         build/Libc/Memory.o \
         Fonts/Font.o
 

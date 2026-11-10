@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdint>
+#include "limine.h"
 class PhysicalMemoryManager
 {
     public:
@@ -7,9 +8,9 @@ class PhysicalMemoryManager
         ~PhysicalMemoryManager() = default;
         uint64_t allocFrame_PMM();
         void freeFrame_PMM(uint64_t address);
-
-    private:
+        struct limine_hhdm_response* getHDDM();
         struct limine_memmap_response* getMemoryMap_Limine();
+    private:
         void findMaxAndUsableMemory();
         bool initialiseBitmap();
 

@@ -41,6 +41,11 @@ struct limine_memmap_response* PhysicalMemoryManager::getMemoryMap_Limine()
     return memoryMapRequest.response;
 }
 
+struct limine_hhdm_response* PhysicalMemoryManager::getHDDM()
+{
+    return HHDMRequest.response;
+}
+
 void PhysicalMemoryManager::findMaxAndUsableMemory()
 {
     struct limine_memmap_response* memoryMap = this->getMemoryMap_Limine();
