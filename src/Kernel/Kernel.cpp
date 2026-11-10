@@ -125,18 +125,32 @@ extern "C" void kernelMain()
     }
 
     TTY::putString("Checking heap (kmallocInit and kmalloc)...\n", fg, bg);
-    // Check if pointer via kmalloc is valid or not
     Libc::Memory::kmallocInit(KERNEL_HEAP_START, KERNEL_HEAP_INITIAL);
-    uint64_t f = (uint64_t)Libc::Memory::kmalloc(4096);
+
+    uint64_t f    = (uint64_t)Libc::Memory::kmalloc(4096);
     uint64_t heap = (uint64_t)Libc::Memory::kmalloc(1024);
-    if (!heap)
+    uint64_t fill = (uint64_t)Libc::Memory::kmalloc(16772000);
+
+    uint64_t shouldBeNull = (uint64_t)Libc::Memory::kmalloc(8);
+    if (!shouldBeNull)
+        TTY::putString("PASS: Heap exhausted correctly\n", fg, bg);
+    else
+        TTY::putString("FAIL: Heap should be full but returned non-null\n", fg_Error, bg);
+
+    Libc::Memory::kfree((void*)f);
+    Libc::Memory::kfree((void*)heap);
+
+    uint64_t shouldWork = (uint64_t)Libc::Memory::kmalloc(1024);
+    if (shouldWork)
     {
-        TTY::putString("Critical Error: kmalloc returned null!\n", fg_Error, bg);
-        halt();
+        char buffer2[21];
+        uint64ToHex(shouldWork, buffer2);
+        TTY::putString("PASS: kmalloc succeeded after kfree: ", fg, bg);
+        TTY::putString(buffer2, fg, bg);
+        TTY::putString("\n", fg, bg);
     }
-    char buffer2[21];
-    uint64ToHex(heap, buffer2);
-    TTY::putString(buffer2, fg, bg);
+    else
+        TTY::putString("FAIL: kmalloc failed after kfree (kfree not implemented?)\n", fg_Error, bg);
 
     TTY::putString("\nWelcome to KernOS! Try typing...\n", fg, bg);
     while (true) {}
