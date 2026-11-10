@@ -15,12 +15,7 @@ volatile struct limine_kernel_address_request  kernelAddressRequest =
 };
 
 
-#define PAGE_PRESENT        (1ULL << 0)  // Page is mapped in memory
-#define PAGE_WRITABLE       (1ULL << 1)  // Page is read/write (0 = read-only)
-#define PAGE_USER           (1ULL << 2)  // Accessible from user-space (Ring 3)
-#define PAGE_CACHE_DISABLE  (1ULL << 4)  // Disable caching (needed for MMIO/framebuffer)
-#define PAGE_NX             (1ULL << 63) // No-Execute (prevent running code on data)
-#define VMM_ADDRESS_MASK 0x000FFFFFFFFFF000ULL // Extracts the 4KB-aligned physical address
+
 
 VirtualMemoryManager::VirtualMemoryManager(PhysicalMemoryManager* pmm,
                                             struct limine_memmap_response* memoryMap,
@@ -134,7 +129,7 @@ uint64_t VirtualMemoryManager::createTable()
 {
     uint64_t physical = pmm->allocFrame_PMM();
     // TODO: Verify OOM
-    Libc::Memory::memset((uint8_t*)physicalToVirtual(physical), 0, 4096);
+    Libc::Memory::kmemset((uint8_t*)physicalToVirtual(physical), 0, 4096);
     return physical;
 }
 

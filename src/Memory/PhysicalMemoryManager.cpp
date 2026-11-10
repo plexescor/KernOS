@@ -99,7 +99,7 @@ bool PhysicalMemoryManager::initialiseBitmap()
     }
 
     // Set so that every page is used
-    Libc::Memory::memset(bitmap, 0xFF, bitmapBytes);
+    Libc::Memory::kmemset(bitmap, 0xFF, bitmapBytes);
 
     // Now make pages free if they are in usable regions
     for (uint64_t i = 0; i < memoryMap->entry_count; i++)

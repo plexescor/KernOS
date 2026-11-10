@@ -1,4 +1,5 @@
 #include "Framebuffer/Framebuffer.hpp"
+#include "Libc/Memory.hpp"
 #include "TTY/TTY.hpp"
 #include "GDT/GDT.hpp"
 #include "IDT/IDT.hpp"
@@ -7,6 +8,9 @@
 #include "Memory/VirtualMemoryManager.hpp"
 
 #include "limine.h"
+#define KERNEL_HEAP_START     0xFFFFB00000000000
+#define KERNEL_HEAP_INITIAL   (1024 * 1024 * 16)
+#define KERNEL_HEAP_MAX       0xFFFFC00000000000
 
 static void halt()
 {
@@ -105,6 +109,35 @@ extern "C" void kernelMain()
     struct limine_hhdm_response* hddmResponse = pmm.getHDDM();
     VirtualMemoryManager vmm(&pmm, memoryMap, hddmResponse);
 
-    TTY::putString("Welcome to KernOS! Try typing...\n", fg, bg);
+    TTY::putString("Mapping heap memory...\n", fg, bg);
+
+    uint64_t heapPages = KERNEL_HEAP_INITIAL / 4096;
+    for (uint64_t page = 0; page < heapPages; page++)
+    {
+        uint64_t virtualAddress = KERNEL_HEAP_START + (page * 4096);
+        uint64_t physicalAddress = pmm.allocFrame_PMM();
+        if (!physicalAddress)
+        {
+            TTY::putString("Critical Error: Out of Memory!!\n", fg_Error, bg);
+            halt();
+        }
+        vmm.mapPage(virtualAddress, physicalAddress, PAGE_PRESENT | PAGE_WRITABLE);
+    }
+
+    TTY::putString("Checking heap (kmallocInit and kmalloc)...\n", fg, bg);
+    // Check if pointer via kmalloc is valid or not
+    Libc::Memory::kmallocInit(KERNEL_HEAP_START, KERNEL_HEAP_INITIAL);
+    uint64_t f = (uint64_t)Libc::Memory::kmalloc(4096);
+    uint64_t heap = (uint64_t)Libc::Memory::kmalloc(1024);
+    if (!heap)
+    {
+        TTY::putString("Critical Error: kmalloc returned null!\n", fg_Error, bg);
+        halt();
+    }
+    char buffer2[21];
+    uint64ToHex(heap, buffer2);
+    TTY::putString(buffer2, fg, bg);
+
+    TTY::putString("\nWelcome to KernOS! Try typing...\n", fg, bg);
     while (true) {}
 }

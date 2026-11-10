@@ -4,7 +4,12 @@
 
 #include <cstdint>
 #include <cstddef>
-
+#define PAGE_PRESENT        (1ULL << 0)  // Page is mapped in memory
+#define PAGE_WRITABLE       (1ULL << 1)  // Page is read/write (0 = read-only)
+#define PAGE_USER           (1ULL << 2)  // Accessible from user-space (Ring 3)
+#define PAGE_CACHE_DISABLE  (1ULL << 4)  // Disable caching (needed for MMIO/framebuffer)
+#define PAGE_NX             (1ULL << 63) // No-Execute (prevent running code on data)
+#define VMM_ADDRESS_MASK 0x000FFFFFFFFFF000ULL // Extracts the 4KB-aligned physical address
 struct PageTable
 {
     uint64_t entries[512];
