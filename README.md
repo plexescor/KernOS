@@ -11,6 +11,8 @@ The goal is a modern, clean-slate OS with no legacy baggage. No 40 years of POSI
 Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and accepts keyboard input(Doesn't print anything..yet).
 
 **Working:**
+> [!NOTE]
+> Working does not mean it doesnt have any bugs or other bad things.
 - GDT with all descriptor entries including user-mode segments
 - IDT with handlers for all standard x86-64 exceptions
 - ISR stubs in NASM with correct symbol exports and stack frame setup
@@ -20,14 +22,14 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 - PSF2 bitmap font renderer on Limine framebuffer
 - TTY with global cursor state and newline handling
 - Physical memory manager using a bitmap allocator over Limine's memory map
+- Virtual memory manager and 4-level page tables
 - Port I/O (inb and outb currently)
 - MSR read and write
 
 **In progress:**
-- Virtual memory manager and 4-level page tables
+- Kernel heap
 
 **Not started yet:**
-- Kernel heap
 - ACPI parsing
 - PCI enumeration
 - NVMe driver
