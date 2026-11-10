@@ -81,7 +81,7 @@ void IO::Keyboard::handleKeyboardInterrupt()
     if (c != '\0')
     {
         char translated[2] = { c, '\0' };
-        TTY::putString(translated, 0x00FF00, 0x000000);
+        TTY::putString(translated, TTY::Color::SILVER, TTY::Color::BLACK);
     }
 
     // Tell we handled it

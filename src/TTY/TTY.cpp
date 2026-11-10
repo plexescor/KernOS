@@ -12,7 +12,7 @@ extern char _binary_Fonts_Font_psf_size[];
 
 #define PIXEL uint32_t
 
-void TTY::putChar(uint16_t c, size_t cX, size_t cY, uint32_t fg, uint32_t bg)
+void TTY::putChar(uint16_t c, size_t cX, size_t cY, TTY::Color foregroundColor, TTY::Color backgroundColor)
 {
     PSF_font *font = (PSF_font*)&_binary_Fonts_Font_psf_start;
 
@@ -44,7 +44,8 @@ void TTY::putChar(uint16_t c, size_t cX, size_t cY, uint32_t fg, uint32_t bg)
         /* display a row */
         for(x = 0; x <font->width; x++)
 		{
-            *((PIXEL*)(base + line)) = (*currentByte & mask) ? fg : bg;
+            *((PIXEL*)(base + line)) = (*currentByte & mask) ? static_cast<uint32_t>(foregroundColor)
+                                                            : static_cast<uint32_t>(backgroundColor);
             mask >>= 1;
             if (mask == 0){
                 /* We have read this byte of the glyph.
@@ -62,7 +63,7 @@ void TTY::putChar(uint16_t c, size_t cX, size_t cY, uint32_t fg, uint32_t bg)
 
 static size_t y = 0;
 static size_t x = 0;
-void TTY::putString(const char* str,  uint32_t fg, uint32_t bg)
+void TTY::putString(const char* str,  TTY::Color foregroundColor, TTY::Color backgroundColor)
 {
     while (*str)
     {
@@ -73,7 +74,7 @@ void TTY::putString(const char* str,  uint32_t fg, uint32_t bg)
         }
         else
         {
-            TTY::putChar((uint16_t)*str, x, y, fg, bg);
+            TTY::putChar((uint16_t)*str, x, y, foregroundColor, backgroundColor);
             x++;
         }
         str++;
