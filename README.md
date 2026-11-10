@@ -25,9 +25,10 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 - Virtual memory manager and 4-level page tables
 - Port I/O (inb and outb currently)
 - MSR read and write
+- Kernel heap
 
 **In progress:**
-- Kernel heap
+- Havent decided yet what to do
 
 **Not started yet:**
 - ACPI parsing
@@ -54,8 +55,6 @@ The build system is still changing frequently. Proper build instructions will be
 
 The roadmap roughly in order:
 
-- Virtual memory and paging
-- Kernel heap
 - ACPI parsing and PCI enumeration
 - NVMe driver and ext2 filesystem
 - Userspace, ELF loader, syscalls, scheduler
