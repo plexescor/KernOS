@@ -33,4 +33,5 @@ namespace TTY
     };
     void putChar(uint16_t c, size_t cX, size_t cY, Color foregroundColor, Color backgroundColor);
     void putString(const char* str, Color foregroundColor, Color backgroundColor);
+    void putString(const char* str, Color foregroundColor);
 } // TTY

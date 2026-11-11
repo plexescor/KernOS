@@ -23,12 +23,12 @@ class VirtualMemoryManager
         void activate();
         void mapPage(uint64_t virtualAddress, uint64_t physicalAddress, uint64_t flags);
         void unMapPage(uint64_t virtualAddress);
+        uint64_t physicalToVirtual(uint64_t address);
+        uint64_t virtualToPhysical(uint64_t address);
 
     private:
         void mapKernelPrerequisites();
         uint64_t createTable();
-        uint64_t physicalToVirtual(uint64_t address);
-        uint64_t virtualToPhysical(uint64_t address);
         uint64_t getCR3();
         void setCR3(PageTable* pml4Address);
         PageTable* getNextTableLevel(PageTable* current, size_t index, uint64_t flags);

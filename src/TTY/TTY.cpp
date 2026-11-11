@@ -80,3 +80,23 @@ void TTY::putString(const char* str,  TTY::Color foregroundColor, TTY::Color bac
         str++;
     }
 }
+
+// Overload
+void TTY::putString(const char* str,  TTY::Color foregroundColor)
+{
+    TTY::Color backgroundColor = TTY::Color::BLACK;
+    while (*str)
+    {
+        if (*str == '\n')
+        {
+            y++;          // move down one character row
+            x = 0;  // reset to left margin
+        }
+        else
+        {
+            TTY::putChar((uint16_t)*str, x, y, foregroundColor, backgroundColor);
+            x++;
+        }
+        str++;
+    }
+}
