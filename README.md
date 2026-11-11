@@ -26,6 +26,7 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 - Port I/O (inb and outb currently)
 - MSR read and write
 - Kernel heap
+- ACPI parsing (Keyboard done but no typing on bare metal)
 
 **In progress:**
 - ACPI parsing (Keyboard)
@@ -39,9 +40,10 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 
 ## Requirements
 
-- x86-64 CPU
+- x86-64 CPU (64 Bit)
 - UEFI firmware
 - LAPIC support
+- ACPI Revision 2.0
 - 2GB RAM (QEMU default for testing)
 
 These are the minimum tested requirements. 32-bit and legacy BIOS are not supported and will not be.
