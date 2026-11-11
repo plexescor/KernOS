@@ -1,12 +1,15 @@
 #include "CPU/ACPI.hpp"
 #include "CPU/APIC.hpp"
 #include "IO/PortIO.hpp"
+#include "IO/PCI.hpp"
 #include "Memory/VirtualMemoryManager.hpp"
 #include "Memory/PhysicalMemoryManager.hpp"
 #include "TTY/TTY.hpp"
 
 #include <cstdint>
 
+extern const char* uint64ToString(uint64_t value, char* bufferOut, int bufferSize);
+extern void uint64ToHex(uint64_t value, char* buffer);
 static VirtualMemoryManager* vmm = nullptr;
 static PhysicalMemoryManager* pmm = nullptr;
 
@@ -26,13 +29,15 @@ static void* RSDPAddress = nullptr;
 static struct CPU::ACPI::XSDTTable* XSDT = nullptr;
 static struct CPU::ACPI::MADTTable* MADTTable_ = nullptr;
 
+static struct CPU::ACPI::MCFGTable* MCFGTable_ = nullptr;
+
 CPU::ACPI::ACPIDescriptionHeader* CPU::ACPI::findTable(const char signature[4])
 {
     uint64_t numberOfEntries = (XSDT->header.length - sizeof(CPU::ACPI::ACPIDescriptionHeader)) / 8;
-
     for (uint64_t entry = 0; entry < numberOfEntries; entry++)
     {
-        CPU::ACPI::ACPIDescriptionHeader* header = (CPU::ACPI::ACPIDescriptionHeader*)(vmm->physicalToVirtual(XSDT->entries[entry]));
+        CPU::ACPI::ACPIDescriptionHeader* header = (CPU::ACPI::ACPIDescriptionHeader*)
+            (vmm->physicalToVirtual(XSDT->entries[entry]));
 
         if (header->signature[0] == signature[0]
             && header->signature[1] == signature[1]
@@ -91,6 +96,25 @@ bool CPU::ACPI::iterateMADTTable()
     return true;
 }
 
+bool CPU::ACPI::iterateMCFGTable()
+{
+    MCFGTable_ = (MCFGTable*)(CPU::ACPI::findTable("MCFG"));
+    if (!MCFGTable_)
+    {
+        TTY::putString("[FAIL] Couldn't find MCFG table!\n", TTY::Color::RED);
+        return false;
+    }
+    uint64_t numberEntries = (uint64_t)((MCFGTable_->header.length - sizeof(MCFGTable))/sizeof(CPU::ACPI::MCFGEntry));
+    MCFGEntry* entries = (MCFGEntry*)((uint8_t*)MCFGTable_ + sizeof(MCFGTable));
+    for (uint64_t entry = 0; entry < numberEntries; entry++)
+    {
+        MCFGEntry* MCFGEntry_ = &entries[entry];
+        IO::PCI::PCIInit(MCFGEntry_->baseAddress, MCFGEntry_->startBus, MCFGEntry_->endBus, vmm);
+        IO::PCI::enumerate();
+    }
+    return true;
+}
+
 bool CPU::ACPI::ACPI_Initialise(VirtualMemoryManager *vmm_P, PhysicalMemoryManager *pmm_P)
 {
     if (!vmm_P || !pmm_P)
@@ -140,5 +164,7 @@ bool CPU::ACPI::ACPI_Initialise(VirtualMemoryManager *vmm_P, PhysicalMemoryManag
 
     // Our wanted entries start at offset 44
     if (!CPU::ACPI::iterateMADTTable()) return false;
+    if (!CPU::ACPI::iterateMCFGTable()) return false;
+
     return true;
 }

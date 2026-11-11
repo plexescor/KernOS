@@ -4,3 +4,4 @@ iso
 isoRoot/
 MY_VARS.fd
 .cache
+nvme_disk.img

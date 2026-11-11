@@ -107,8 +107,25 @@ namespace CPU
             uint8_t reserved[3];
         };
 
+        struct __attribute__((packed)) MCFGTable
+        {
+            ACPIDescriptionHeader header;
+            uint64_t reserved;
+            // followed by n entries
+        };
+
+        struct __attribute__((packed)) MCFGEntry
+        {
+            uint64_t baseAddress;   // physical base of PCIe config space
+            uint16_t segmentGroup;
+            uint8_t  startBus;
+            uint8_t  endBus;
+            uint32_t reserved;
+        };
+
         ACPIDescriptionHeader* findTable(const char signature[4]);
         bool iterateMADTTable();
+        bool iterateMCFGTable();
         bool ACPI_Initialise(VirtualMemoryManager* vmm_P, PhysicalMemoryManager* pmm_P);
     } // ACPI
 } // CPU

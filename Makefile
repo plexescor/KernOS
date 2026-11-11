@@ -11,7 +11,7 @@ CXXFLAGS := \
     -fno-exceptions -fno-rtti \
     -m64 -mno-80387 -mno-mmx -mno-sse -mno-sse2 -mno-red-zone -mcmodel=kernel \
     -std=c++23 -Wall -Wextra -O2 \
-    -Iinclude -Ilimine
+    -Iinclude -Ilimine -Iinclude_Drivers
 
 ASFLAGS := -f elf64
 
@@ -29,12 +29,14 @@ SRCS_CXX := src/Kernel/Kernel.cpp \
 			 src/IDT/IDT.cpp \
 			 src/IO/PortIO.cpp \
 			 src/IO/Keyboard.cpp \
+			 src/IO/PCI.cpp \
 			 src/CPU/APIC.cpp \
 			 src/CPU/MSR.cpp \
 			 src/CPU/ACPI.cpp \
 			 src/Memory/PhysicalMemoryManager.cpp \
 			 src/Memory/VirtualMemoryManager.cpp \
-			 src/Libc/Memory.cpp
+			 src/Libc/Memory.cpp \
+			 drivers/IO/NVMe.cpp
 SRCS_ASM := src/Boot/Boot.asm \
 			 src/GDT/GDT.asm \
 			 src/IDT/IDT.asm
@@ -49,13 +51,15 @@ OBJS := build/Kernel/Kernel.o \
         build/IDT/IDT.asm.o \
         build/IO/PortIO.o \
         build/IO/Keyboard.o \
+        build/IO/PCI.o \
         build/CPU/APIC.o \
         build/CPU/MSR.o \
         build/CPU/ACPI.o \
         build/Memory/PhysicalMemoryManager.o \
         build/Memory/VirtualMemoryManager.o \
         build/Libc/Memory.o \
-        Fonts/Font.o
+        Fonts/Font.o \
+        build/drivers/IO/NVMe.o
 
 # Targets
 .PHONY: all iso run clean
@@ -68,6 +72,10 @@ build/Kernel.elf: $(OBJS) linker.ld | build
 
 # Compile C++
 build/%.o: src/%.cpp | build
+	mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+build/drivers/%.o: drivers/%.cpp | build
 	mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -116,9 +124,11 @@ run: iso
 	    -drive if=pflash,format=raw,readonly=on,file=/usr/share/edk2/x64/OVMF_CODE.4m.fd \
 	    -drive if=pflash,format=raw,file=./MY_VARS.fd \
 	    -cdrom KernOS.iso \
+	    -drive file=nvme_disk.img,if=none,id=nvme0 \
+	    -device nvme,drive=nvme0,serial=kernos0 \
 	    -m 2G \
 	    -monitor stdio \
-		-display gtk,grab-on-hover=on
+	    -display gtk,grab-on-hover=on
 
 clean:
 	rm -rf build isoRoot KernOS.iso

@@ -10,6 +10,7 @@
 #include "IO/PortIO.hpp"
 #include "limine.h"
 
+#include "Drivers/IO/NVMe.hpp"
 
 static void halt()
 {
@@ -208,6 +209,7 @@ extern "C" void kernelMain()
     TTY::putString(uint64ToString((KERNEL_HEAP_INITIAL/(1024)), buffer2, 21), TTY::Color::YELLOW);
     TTY::putString(" Kilobytes\n", TTY::Color::YELLOW);
 
+    Driver::IO::NVMe::initialise();
     // Finished
     TTY::putString("[ OK ] ", TTY::Color::LIME);
     TTY::putString("All initialization stages completed.\n", TTY::Color::WHITE);
