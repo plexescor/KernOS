@@ -16,7 +16,6 @@
 #define IA32_APIC_BASE_MSR 0x1B
 #define IA32_APIC_BASE_MSR_BSP 0x100 // Processor is a BSP
 #define IA32_APIC_BASE_MSR_ENABLE 0x800
-#define LAPIC_BASE 0xFEE00000
 #define SPURIOUS_VECTOR_REG 0xF0
 #define LAPIC_SOFTWARE_ENABLE (1 << 8)
 #define LAPIC_EOI_REG 0xB0
@@ -32,6 +31,7 @@ static VirtualMemoryManager* vmm = nullptr;
 static uint64_t IOAPICBase = 0xFEC00000;
 static uint32_t keyboardGSI = 1; // Safe defaults
 static uint16_t keyboardFlags = 0;
+static uint64_t LAPICBase = 0xFEE00000;  // safe default
 
 void CPU::APIC::setVMM(VirtualMemoryManager* v)
 {
@@ -69,15 +69,16 @@ bool CPU::APIC::checkLAPICSupport()
     return (edx & (1 << 9)) != 0;
 }
 
-bool CPU::APIC::initialiseLAPIC()
+bool CPU::APIC::initialiseLAPIC(uint64_t LAPICBase_)
 {
+    LAPICBase = LAPICBase_;
     CPU::APIC::disableLegacyPIC();
     if (!CPU::APIC::checkLAPICSupport()) return false;
     CPU::APIC::enableLAPICGlobally();
 
-    mapMMIO(LAPIC_BASE, 4096);
+    mapMMIO(LAPICBase, 4096);
 
-    volatile uint32_t* spuriousReg = (volatile uint32_t*)(LAPIC_BASE + SPURIOUS_VECTOR_REG);
+    volatile uint32_t* spuriousReg = (volatile uint32_t*)(LAPICBase + SPURIOUS_VECTOR_REG);
 
     *spuriousReg = 0xFF | LAPIC_SOFTWARE_ENABLE;
     return true;
@@ -85,7 +86,7 @@ bool CPU::APIC::initialiseLAPIC()
 
 void CPU::APIC::LAPICEOI()
 {
-    volatile uint32_t* EOIRegister = (volatile uint32_t*)(LAPIC_BASE + LAPIC_EOI_REG);
+    volatile uint32_t* EOIRegister = (volatile uint32_t*)(LAPICBase + LAPIC_EOI_REG);
     *EOIRegister = 0;
 }
 
@@ -114,7 +115,7 @@ bool CPU::APIC::initialiseIOAPIC(uint64_t address, uint32_t keyboardGSI_P, uint1
     // TTY::putString("initialiseIOAPIC called!\n", TTY::Color::LIME);
     IOAPICBase = address;
     keyboardGSI = keyboardGSI_P;
-    keyboardFlags = keyboardGSI_P;
+    keyboardFlags = keyboardFlags_P;
     mapMMIO(IOAPICBase, 4096);
     return true;
 }
@@ -122,8 +123,7 @@ bool CPU::APIC::initialiseIOAPIC(uint64_t address, uint32_t keyboardGSI_P, uint1
 static void ps2Wait()
 {
     uint32_t timeout = 100000;
-    while ((IO::Port::inb(0x64) & 0x2) && timeout--)
-        ;
+    while ((IO::Port::inb(0x64) & 0x2) && timeout--);
 }
 
 static void ps2WaitRead()
@@ -132,7 +132,11 @@ static void ps2WaitRead()
     while (!(IO::Port::inb(0x64) & 0x1) && timeout--)
         ;
 }
-
+// uint8_t CPU::APIC::getLAPICID()
+// {
+//     volatile uint32_t* lapicID = (volatile uint32_t*)(vmm->physicalToVirtual(LAPIC_BASE) + 0x20);
+//     return (*lapicID >> 24) & 0xFF;
+// }
 void CPU::APIC::initPS2()
 {
     ps2Wait(); IO::Port::outb(0x64, 0xAD);
@@ -162,6 +166,12 @@ void CPU::APIC::initPS2()
 
 void CPU::APIC::IOAPICSetupKeyboard(uint8_t IDTVector, uint8_t LAPICID)
 {
+    uint8_t status = IO::Port::inb(0x64);
+    if (status == 0xFF)
+    {
+        // 0xFF means no controller present
+        TTY::putString("[WARN] No PS/2 controller found!\n", TTY::Color::YELLOW);
+    }
     CPU::APIC::initPS2();
     uint32_t lowBits = IDTVector;
 

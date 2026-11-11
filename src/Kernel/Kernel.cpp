@@ -147,18 +147,18 @@ extern "C" void kernelMain()
 
     // LAPIC
 
-    TTY::putString("[INIT] ", TTY::Color::CYAN);
-    TTY::putString("Initializing Local APIC...\n", TTY::Color::WHITE);
+    // TTY::putString("[INIT] ", TTY::Color::CYAN);
+    // TTY::putString("Initializing Local APIC...\n", TTY::Color::WHITE);
 
-    if (!CPU::APIC::initialiseLAPIC())
-    {
-        TTY::putString("[FAIL] ", TTY::Color::RED);
-        TTY::putString("LAPIC initialization failed. System halted.\n", TTY::Color::WHITE);
-        halt();
-    }
+    // if (!CPU::APIC::initialiseLAPIC())
+    // {
+    //     TTY::putString("[FAIL] ", TTY::Color::RED);
+    //     TTY::putString("LAPIC initialization failed. System halted.\n", TTY::Color::WHITE);
+    //     halt();
+    // }
 
-    TTY::putString("[ OK ] ", TTY::Color::LIME);
-    TTY::putString("Local APIC initialized.\n", TTY::Color::WHITE);
+    // TTY::putString("[ OK ] ", TTY::Color::LIME);
+    // TTY::putString("Local APIC initialized.\n", TTY::Color::WHITE);
 
     // Keyboard interrupts
     TTY::putString("[INIT] ", TTY::Color::CYAN);

@@ -60,6 +60,7 @@ bool CPU::ACPI::iterateMADTTable()
     uint64_t IOAPICAddress = 0;
     uint32_t keyboardGSI = 1;
     uint16_t keyboardFlags = 0;
+    uint64_t LAPICAddress = MADTTable_->localAPICAddress;
     while (ptr < end)
     {
         CPU::ACPI::MADTRecordHeader* record = (CPU::ACPI::MADTRecordHeader*)ptr;
@@ -84,6 +85,7 @@ bool CPU::ACPI::iterateMADTTable()
     // TTY::putString("IOAPICAddress found: ", TTY::Color::WHITE);
     // printHex(IOAPICAddress);
     // Only update these values when we find them properly
+    CPU::APIC::initialiseLAPIC(LAPICAddress);
     if (IOAPICAddress != 0)
         CPU::APIC::initialiseIOAPIC(IOAPICAddress, keyboardGSI, keyboardFlags);
     return true;

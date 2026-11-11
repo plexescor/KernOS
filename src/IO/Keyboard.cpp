@@ -73,11 +73,12 @@ char IO::Keyboard::translateScanCode(uint8_t code)
 
 void IO::Keyboard::handleKeyboardInterrupt()
 {
+
     // Get the scancode from the hardware port
     uint8_t scanCode = Port::inb(KEYBOARD_IO_PORT);
     // If its not a release scanCode
     char c = IO::Keyboard::translateScanCode(scanCode);
-    // TTY::putString("K", 0x00FF00, 0x000000);
+    TTY::putString("K", TTY::Color::MAGENTA);
     if (c != '\0')
     {
         char translated[2] = { c, '\0' };
