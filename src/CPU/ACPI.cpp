@@ -1,4 +1,5 @@
 #include "CPU/ACPI.hpp"
+#include "CPU/APIC.hpp"
 #include "IO/PortIO.hpp"
 #include "Memory/VirtualMemoryManager.hpp"
 #include "Memory/PhysicalMemoryManager.hpp"
@@ -23,7 +24,7 @@ volatile struct limine_rsdp_request RSDPRequest =
 // This would be a virtual address
 static void* RSDPAddress = nullptr;
 static struct CPU::ACPI::XSDTTable* XSDT = nullptr;
-static struct CPU::ACPI::ACPIDescriptionHeader* APICHeader = nullptr;
+static struct CPU::ACPI::MADTTable* MADTTable_ = nullptr;
 
 CPU::ACPI::ACPIDescriptionHeader* CPU::ACPI::findTable(const char signature[4])
 {
@@ -42,6 +43,50 @@ CPU::ACPI::ACPIDescriptionHeader* CPU::ACPI::findTable(const char signature[4])
         }
     }
     return nullptr;
+}
+bool CPU::ACPI::iterateMADTTable()
+{
+    MADTTable_ = (CPU::ACPI::MADTTable*)(CPU::ACPI::findTable("APIC"));
+    if (!MADTTable_)
+    {
+        TTY::putString("[FAIL] ", TTY::Color::RED);
+        TTY::putString("Couldn't find \"MADTTable\" Entry in XSDT!\n", TTY::Color::WHITE);
+        return false;
+    }
+
+    uint8_t* ptr = (uint8_t*)MADTTable_ + sizeof(CPU::ACPI::MADTTable);
+    uint8_t* end = (uint8_t*)MADTTable_ + MADTTable_->header.length;
+
+    uint64_t IOAPICAddress = 0;
+    uint32_t keyboardGSI = 1;
+    uint16_t keyboardFlags = 0;
+    while (ptr < end)
+    {
+        CPU::ACPI::MADTRecordHeader* record = (CPU::ACPI::MADTRecordHeader*)ptr;
+        if (record->type == 1)
+        {
+            CPU::ACPI::MADTIOAPIC* MADTIOAPIC_ = (CPU::ACPI::MADTIOAPIC*)ptr;
+            IOAPICAddress = MADTIOAPIC_->IOAPICAddress;
+        }
+        if (record->type == 2)
+        {
+            CPU::ACPI::MADTInterruptSourceOverride* MADTISO = (CPU::ACPI::MADTInterruptSourceOverride*)ptr;
+            // IRQ 1 == keyboard
+            if (MADTISO->irqSource == 1)
+            {
+                keyboardGSI = MADTISO->gsi;
+                keyboardFlags = MADTISO->flags;
+            }
+        }
+        ptr += record->length;
+    }
+
+    // TTY::putString("IOAPICAddress found: ", TTY::Color::WHITE);
+    // printHex(IOAPICAddress);
+    // Only update these values when we find them properly
+    if (IOAPICAddress != 0)
+        CPU::APIC::initialiseIOAPIC(IOAPICAddress, keyboardGSI, keyboardFlags);
+    return true;
 }
 
 bool CPU::ACPI::ACPI_Initialise(VirtualMemoryManager *vmm_P, PhysicalMemoryManager *pmm_P)
@@ -91,14 +136,7 @@ bool CPU::ACPI::ACPI_Initialise(VirtualMemoryManager *vmm_P, PhysicalMemoryManag
         return false;
     }
 
-    APICHeader = CPU::ACPI::findTable("APIC");
-    if (!APICHeader)
-    {
-        TTY::putString("[FAIL] ", TTY::Color::RED);
-        TTY::putString("Couldn't find \"APIC\" Entry in XSDT!\n", TTY::Color::WHITE);
-        return false;
-    }
-
-    // Now found our APIC table
+    // Our wanted entries start at offset 44
+    if (!CPU::ACPI::iterateMADTTable()) return false;
     return true;
 }

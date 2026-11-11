@@ -14,8 +14,9 @@ namespace CPU
         void LAPICEOI();
 
         uint32_t readIOAPIC(uint8_t offset);
+        void initPS2();
         void writeIOAPIC(uint8_t offset, uint32_t value);
-        bool initialiseIOAPIC();
+        bool initialiseIOAPIC(uint64_t address, uint32_t keyboardGSI_P, uint16_t keyboardFlags_P);
         void IOAPICSetupKeyboard(uint8_t IDTVector, uint8_t LAPICID);
     } // APIC
 } // CPU

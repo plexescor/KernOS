@@ -22,9 +22,6 @@
 #define LAPIC_EOI_REG 0xB0
 
 // IOAPIC
-#define IOAPIC_BASE 0xFEC00000
-#define IOREGSEL IOAPIC_BASE + 0x00
-#define IOREGWIN IOAPIC_BASE + 0x10
 #define IOAPICID 0x00
 #define IOAPICVER 0x01
 #define IOAPICARB 0x02
@@ -32,6 +29,9 @@
 
 
 static VirtualMemoryManager* vmm = nullptr;
+static uint64_t IOAPICBase = 0xFEC00000;
+static uint32_t keyboardGSI = 1; // Safe defaults
+static uint16_t keyboardFlags = 0;
 
 void CPU::APIC::setVMM(VirtualMemoryManager* v)
 {
@@ -76,7 +76,6 @@ bool CPU::APIC::initialiseLAPIC()
     CPU::APIC::enableLAPICGlobally();
 
     mapMMIO(LAPIC_BASE, 4096);
-    mapMMIO(IOAPIC_BASE, 4096);
 
     volatile uint32_t* spuriousReg = (volatile uint32_t*)(LAPIC_BASE + SPURIOUS_VECTOR_REG);
 
@@ -94,32 +93,87 @@ void CPU::APIC::LAPICEOI()
 uint32_t CPU::APIC::readIOAPIC(uint8_t offset)
 {
     // Tell IOREGSEL where we wanna read from
-    *(volatile uint32_t*)(IOREGSEL) = offset;
+    *(volatile uint32_t*)(IOAPICBase + 0x00) = offset;
     // Read from the output or IOREGWIN register ig
-    return *(volatile uint32_t*)(IOREGWIN);
+    return *(volatile uint32_t*)(IOAPICBase + 0x10);
 }
 
 void CPU::APIC::writeIOAPIC(uint8_t offset, uint32_t value)
 {
     // Tell IOREGSEL where we wanna write to
-    *(volatile uint32_t*)(IOREGSEL) = offset;
+    *(volatile uint32_t*)(IOAPICBase + 0x00) = offset;
     // Write the value into IOREGWIN which is to be written
-    *(volatile uint32_t*)(IOREGWIN) = value;
+    *(volatile uint32_t*)(IOAPICBase + 0x10) = value;
+}
+#include "TTY/TTY.hpp"
+
+bool CPU::APIC::initialiseIOAPIC(uint64_t address, uint32_t keyboardGSI_P, uint16_t keyboardFlags_P)
+{
+    TTY::putString("[INIT] ", TTY::Color::CYAN);
+    TTY::putString("Initializing IOAPIC...\n", TTY::Color::WHITE);
+    // TTY::putString("initialiseIOAPIC called!\n", TTY::Color::LIME);
+    IOAPICBase = address;
+    keyboardGSI = keyboardGSI_P;
+    keyboardFlags = keyboardGSI_P;
+    mapMMIO(IOAPICBase, 4096);
+    return true;
 }
 
-bool CPU::APIC::initialiseIOAPIC()
+static void ps2Wait()
 {
+    uint32_t timeout = 100000;
+    while ((IO::Port::inb(0x64) & 0x2) && timeout--)
+        ;
+}
 
+static void ps2WaitRead()
+{
+    uint32_t timeout = 100000;
+    while (!(IO::Port::inb(0x64) & 0x1) && timeout--)
+        ;
+}
+
+void CPU::APIC::initPS2()
+{
+    ps2Wait(); IO::Port::outb(0x64, 0xAD);
+    ps2Wait(); IO::Port::outb(0x64, 0xA7);
+
+    IO::Port::inb(0x60);
+
+    ps2Wait(); IO::Port::outb(0x64, 0x20);
+    ps2WaitRead();
+    uint8_t config = IO::Port::inb(0x60);
+
+    config |= (1 << 0);
+    config &= ~(1 << 1);
+
+    ps2Wait(); IO::Port::outb(0x64, 0x60);
+    ps2Wait(); IO::Port::outb(0x60, config);
+
+    ps2Wait(); IO::Port::outb(0x64, 0xAE);
+
+    ps2Wait(); IO::Port::outb(0x60, 0xFF);
+    ps2WaitRead(); IO::Port::inb(0x60);
+    ps2WaitRead(); IO::Port::inb(0x60);
+
+    ps2Wait(); IO::Port::outb(0x60, 0xF4);
+    ps2WaitRead(); IO::Port::inb(0x60);
 }
 
 void CPU::APIC::IOAPICSetupKeyboard(uint8_t IDTVector, uint8_t LAPICID)
 {
-    uint32_t lowBits = 0x00000000 | IDTVector;
+    CPU::APIC::initPS2();
+    uint32_t lowBits = IDTVector;
+
+    if (keyboardFlags & 0x2)
+        lowBits |= (1 << 13);
+
+    if (keyboardFlags & 0x8)
+        lowBits |= (1 << 15);
     uint32_t highBits = ((uint32_t)LAPICID) << 24;
 
-    // Keyboard is Pin-1
-    writeIOAPIC(IOAPICREDTBL(1), lowBits);
-    writeIOAPIC(IOAPICREDTBL(1) + 1, highBits);
+    writeIOAPIC(IOAPICREDTBL(keyboardGSI), lowBits);
+    writeIOAPIC(IOAPICREDTBL(keyboardGSI) + 1, highBits);
 
     IO::Port::inb(0x61);
 

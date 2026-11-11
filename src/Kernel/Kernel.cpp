@@ -133,20 +133,19 @@ extern "C" void kernelMain()
 
     VirtualMemoryManager vmm(&pmm, memoryMap, hddmResponse);
 
+    CPU::APIC::setVMM(&vmm);
     TTY::putString("[ OK ] ", TTY::Color::LIME);
     TTY::putString("Virtual Memory Manager initialized.\n", TTY::Color::WHITE);
 
     // ACPI
     TTY::putString("[INIT] ", TTY::Color::CYAN);
     TTY::putString("Initializing ACPI...\n", TTY::Color::WHITE);
-
     if (!CPU::ACPI::ACPI_Initialise(&vmm, &pmm))
     {
         halt();
     }
 
     // LAPIC
-    CPU::APIC::setVMM(&vmm);
 
     TTY::putString("[INIT] ", TTY::Color::CYAN);
     TTY::putString("Initializing Local APIC...\n", TTY::Color::WHITE);

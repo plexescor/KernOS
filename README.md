@@ -12,7 +12,7 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 
 **Working:**
 > [!NOTE]
-> Working does not mean it doesnt have any bugs or other bad things.
+> Working does not mean it doesnt have any bugs or other bad things, also typing doesnt work on Bare Metal Real Hardware
 - GDT with all descriptor entries including user-mode segments
 - IDT with handlers for all standard x86-64 exceptions
 - ISR stubs in NASM with correct symbol exports and stack frame setup
@@ -28,10 +28,9 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 - Kernel heap
 
 **In progress:**
-- Havent decided yet what to do
+- ACPI parsing (Keyboard)
 
 **Not started yet:**
-- ACPI parsing
 - PCI enumeration
 - NVMe driver
 - Filesystem

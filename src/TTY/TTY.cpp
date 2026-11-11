@@ -61,7 +61,7 @@ void TTY::putChar(uint16_t c, size_t cX, size_t cY, TTY::Color foregroundColor, 
     }
 }
 
-static size_t y = 0;
+static size_t y = -1;
 static size_t x = 0;
 void TTY::putString(const char* str,  TTY::Color foregroundColor, TTY::Color backgroundColor)
 {

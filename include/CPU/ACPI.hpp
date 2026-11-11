@@ -19,6 +19,38 @@ namespace CPU
             uint32_t creatorRevision;
         };
 
+        struct __attribute__((packed)) MADTTable
+        {
+            ACPIDescriptionHeader header;
+            uint32_t localAPICAddress;
+            uint32_t flags;
+            // records start here
+        };
+
+        struct __attribute__((packed)) MADTRecordHeader
+        {
+            uint8_t type; // 1 = MADTIOAPIC, 2 = MADTInterruptSourceOverride
+            uint8_t length;
+        };
+
+        struct __attribute__((packed)) MADTInterruptSourceOverride
+        {
+            MADTRecordHeader header;
+            uint8_t  bus;
+            uint8_t  irqSource;
+            uint32_t gsi;
+            uint16_t flags;
+        };
+
+        struct __attribute__((packed)) MADTIOAPIC
+        {
+            MADTRecordHeader header;
+            uint8_t  IOAPICID;
+            uint8_t  reserved;
+            uint32_t IOAPICAddress;
+            uint32_t gsiBase;
+        };
+
         struct __attribute__((packed)) XSDTTable
         {
             ACPIDescriptionHeader header;
@@ -76,6 +108,7 @@ namespace CPU
         };
 
         ACPIDescriptionHeader* findTable(const char signature[4]);
+        bool iterateMADTTable();
         bool ACPI_Initialise(VirtualMemoryManager* vmm_P, PhysicalMemoryManager* pmm_P);
     } // ACPI
 } // CPU
