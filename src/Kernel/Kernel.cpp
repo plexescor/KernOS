@@ -4,6 +4,7 @@
 #include "GDT/GDT.hpp"
 #include "IDT/IDT.hpp"
 #include "CPU/APIC.hpp"
+#include "CPU/ACPI.hpp"
 #include "Memory/PhysicalMemoryManager.hpp"
 #include "Memory/VirtualMemoryManager.hpp"
 #include "IO/PortIO.hpp"
@@ -135,6 +136,15 @@ extern "C" void kernelMain()
     TTY::putString("[ OK ] ", TTY::Color::LIME);
     TTY::putString("Virtual Memory Manager initialized.\n", TTY::Color::WHITE);
 
+    // ACPI
+    TTY::putString("[INIT] ", TTY::Color::CYAN);
+    TTY::putString("Initializing ACPI...\n", TTY::Color::WHITE);
+
+    if (!CPU::ACPI::ACPI_Initialise(&vmm, &pmm))
+    {
+        halt();
+    }
+
     // LAPIC
     CPU::APIC::setVMM(&vmm);
 
@@ -198,21 +208,6 @@ extern "C" void kernelMain()
     char buffer2[21];
     TTY::putString(uint64ToString((KERNEL_HEAP_INITIAL/(1024)), buffer2, 21), TTY::Color::YELLOW);
     TTY::putString(" Kilobytes\n", TTY::Color::YELLOW);
-
-    // heap tests
-    TTY::putString("[INFO] ", TTY::Color::WHITE);
-    TTY::putString("Starting Heap tests...\n", TTY::Color::WHITE);
-
-    char oomBuf[21];
-    uint64_t total = 0;
-    void* ptr;
-    while ((ptr = Libc::Memory::kmalloc(1024 * 1024)) != nullptr)
-    {
-        total += 1024 * 1024;
-    }
-    TTY::putString("[TEST] OOM hit after: ", TTY::Color::CYAN);
-    TTY::putString(uint64ToString(total / (1024 * 1024), oomBuf, 21), TTY::Color::YELLOW);
-    TTY::putString(" MB\n", TTY::Color::WHITE);
 
     // Finished
     TTY::putString("[ OK ] ", TTY::Color::LIME);

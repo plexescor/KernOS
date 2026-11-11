@@ -31,6 +31,7 @@ SRCS_CXX := src/Kernel/Kernel.cpp \
 			 src/IO/Keyboard.cpp \
 			 src/CPU/APIC.cpp \
 			 src/CPU/MSR.cpp \
+			 src/CPU/ACPI.cpp \
 			 src/Memory/PhysicalMemoryManager.cpp \
 			 src/Memory/VirtualMemoryManager.cpp \
 			 src/Libc/Memory.cpp
@@ -50,6 +51,7 @@ OBJS := build/Kernel/Kernel.o \
         build/IO/Keyboard.o \
         build/CPU/APIC.o \
         build/CPU/MSR.o \
+        build/CPU/ACPI.o \
         build/Memory/PhysicalMemoryManager.o \
         build/Memory/VirtualMemoryManager.o \
         build/Libc/Memory.o \

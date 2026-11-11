@@ -25,11 +25,44 @@
       "-Ilimine",
       "-c",
       "-o",
-      "build/TTY/TTY.o",
-      "src/TTY/TTY.cpp"
+      "build/Kernel/Kernel.o",
+      "src/Kernel/Kernel.cpp"
     ],
     "directory": "/home/plexescor/Projects/KernOS",
-    "file": "/home/plexescor/Projects/KernOS/src/TTY/TTY.cpp",
-    "output": "/home/plexescor/Projects/KernOS/build/TTY/TTY.o"
+    "file": "/home/plexescor/Projects/KernOS/src/Kernel/Kernel.cpp",
+    "output": "/home/plexescor/Projects/KernOS/build/Kernel/Kernel.o"
+  },
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-ffreestanding",
+      "-fno-stack-protector",
+      "-fno-stack-check",
+      "-fno-lto",
+      "-fno-PIC",
+      "-fno-PIE",
+      "-fno-exceptions",
+      "-fno-rtti",
+      "-m64",
+      "-mno-80387",
+      "-mno-mmx",
+      "-mno-sse",
+      "-mno-sse2",
+      "-mno-red-zone",
+      "-mcmodel=kernel",
+      "-std=c++23",
+      "-Wall",
+      "-Wextra",
+      "-O2",
+      "-Iinclude",
+      "-Ilimine",
+      "-c",
+      "-o",
+      "build/CPU/ACPI.o",
+      "src/CPU/ACPI.cpp"
+    ],
+    "directory": "/home/plexescor/Projects/KernOS",
+    "file": "/home/plexescor/Projects/KernOS/src/CPU/ACPI.cpp",
+    "output": "/home/plexescor/Projects/KernOS/build/CPU/ACPI.o"
   }
 ]
