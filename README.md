@@ -26,12 +26,11 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 - Port I/O (inb and outb currently)
 - MSR read and write
 - Kernel heap
-- ACPI parsing (Keyboard done but no typing on bare metal)
+- ACPI parsing (MADT, MCFG)
+- PCI enumeration via ECAM
 
 **In progress:**
-- ACPI parsing (Keyboard)
-- PCI enumeration
-- NVMe driver (just started 0% progress)
+- NVMe driver (controller found, BAR0 mapped)
 
 **Not started yet:**
 - Filesystem
@@ -43,6 +42,7 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 - x86-64 CPU (64 Bit)
 - UEFI firmware
 - LAPIC support
+- NVMe only (I will only write driver for this, contributors are welcome thought for others)
 - ACPI Revision 2.0
 - 2GB RAM (QEMU default for testing)
 
