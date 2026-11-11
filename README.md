@@ -30,10 +30,10 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 
 **In progress:**
 - ACPI parsing (Keyboard)
+- PCI enumeration
+- NVMe driver (just started 0% progress)
 
 **Not started yet:**
-- PCI enumeration
-- NVMe driver
 - Filesystem
 - Userspace, ELF loader, syscalls
 - Scheduler
