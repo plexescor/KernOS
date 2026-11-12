@@ -30,7 +30,7 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 - PCI enumeration via ECAM
 
 **In progress:**
-- NVMe driver (controller found, BAR0 mapped)
+- NVMe driver (Written AQA, ASQ, ACQ registers, Stage 5 out of total 10 done)
 
 **Not started yet:**
 - Filesystem
