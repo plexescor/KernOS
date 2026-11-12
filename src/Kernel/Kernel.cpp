@@ -214,7 +214,7 @@ extern "C" void kernelMain()
     TTY::putString(uint64ToString((KERNEL_HEAP_INITIAL/(1024)), buffer2, 21), TTY::Color::YELLOW);
     TTY::putString(" Kilobytes\n", TTY::Color::YELLOW);
 
-    Driver::IO::NVMe::initialise();
+    if(!Driver::IO::NVMe::initialise()) halt();
     // Finished
     TTY::putString("[ OK ] ", TTY::Color::LIME);
     TTY::putString("All initialization stages completed.\n", TTY::Color::WHITE);
