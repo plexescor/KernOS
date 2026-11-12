@@ -10,8 +10,9 @@
 
 extern const char* uint64ToString(uint64_t value, char* bufferOut, int bufferSize);
 extern void uint64ToHex(uint64_t value, char* buffer);
-static VirtualMemoryManager* vmm = nullptr;
-static PhysicalMemoryManager* pmm = nullptr;
+
+extern VirtualMemoryManager* vmm_G;
+extern PhysicalMemoryManager* pmm_G;
 
 
 #define LIMINE_RSDP_REQUEST { LIMINE_COMMON_MAGIC, 0xc5e77b6b397e7b43, 0x27637845accdcf3c }
@@ -37,7 +38,7 @@ CPU::ACPI::ACPIDescriptionHeader* CPU::ACPI::findTable(const char signature[4])
     for (uint64_t entry = 0; entry < numberOfEntries; entry++)
     {
         CPU::ACPI::ACPIDescriptionHeader* header = (CPU::ACPI::ACPIDescriptionHeader*)
-            (vmm->physicalToVirtual(XSDT->entries[entry]));
+            (vmm_G->physicalToVirtual(XSDT->entries[entry]));
 
         if (header->signature[0] == signature[0]
             && header->signature[1] == signature[1]
@@ -109,22 +110,20 @@ bool CPU::ACPI::iterateMCFGTable()
     for (uint64_t entry = 0; entry < numberEntries; entry++)
     {
         MCFGEntry* MCFGEntry_ = &entries[entry];
-        IO::PCI::PCIInit(MCFGEntry_->baseAddress, MCFGEntry_->startBus, MCFGEntry_->endBus, vmm);
+        IO::PCI::PCIInit(MCFGEntry_->baseAddress, MCFGEntry_->startBus, MCFGEntry_->endBus);
         IO::PCI::enumerate();
     }
     return true;
 }
 
-bool CPU::ACPI::ACPI_Initialise(VirtualMemoryManager *vmm_P, PhysicalMemoryManager *pmm_P)
+bool CPU::ACPI::ACPI_Initialise()
 {
-    if (!vmm_P || !pmm_P)
+    if (!vmm_G || !pmm_G)
     {
         TTY::putString("[FAIL] ", TTY::Color::RED);
         TTY::putString("Memory Manager pointers are Null!\n", TTY::Color::WHITE);
         return false;
-    }
-    vmm = vmm_P;
-    pmm = pmm_P;
+    };
 
     if (RSDPRequest.response != NULL)
     {
@@ -147,7 +146,7 @@ bool CPU::ACPI::ACPI_Initialise(VirtualMemoryManager *vmm_P, PhysicalMemoryManag
     }
 
     // Now get XSDT Address, 24 offset
-    XSDT = (CPU::ACPI::XSDTTable*)(vmm->physicalToVirtual(RSDP->XSDTAddress));
+    XSDT = (CPU::ACPI::XSDTTable*)(vmm_G->physicalToVirtual(RSDP->XSDTAddress));
     if (!XSDT)
     {
         TTY::putString("[FAIL] ", TTY::Color::RED);

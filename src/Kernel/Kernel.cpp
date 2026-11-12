@@ -12,6 +12,9 @@
 
 #include "Drivers/IO/NVMe.hpp"
 
+PhysicalMemoryManager* pmm_G = nullptr;
+VirtualMemoryManager* vmm_G = nullptr;
+
 static void halt()
 {
 	while (true)
@@ -101,7 +104,7 @@ extern "C" void kernelMain()
     TTY::putString("[TEST] ", TTY::Color::CYAN);
     TTY::putString("Allocating physical frame...\n", TTY::Color::WHITE);
 
-    uint64_t memory = pmm.allocFrame_PMM();
+    uint64_t memory = pmm.allocFrame();
 
     if (!memory)
     {
@@ -134,14 +137,16 @@ extern "C" void kernelMain()
 
     VirtualMemoryManager vmm(&pmm, memoryMap, hddmResponse);
 
-    CPU::APIC::setVMM(&vmm);
+    pmm_G = &pmm;
+    vmm_G = &vmm;
+
     TTY::putString("[ OK ] ", TTY::Color::LIME);
     TTY::putString("Virtual Memory Manager initialized.\n", TTY::Color::WHITE);
 
     // ACPI
     TTY::putString("[INIT] ", TTY::Color::CYAN);
     TTY::putString("Initializing ACPI...\n", TTY::Color::WHITE);
-    if (!CPU::ACPI::ACPI_Initialise(&vmm, &pmm))
+    if (!CPU::ACPI::ACPI_Initialise())
     {
         halt();
     }
@@ -181,7 +186,7 @@ extern "C" void kernelMain()
     for (uint64_t page = 0; page < heapPages; page++)
     {
         uint64_t virtualAddress = KERNEL_HEAP_START + (page * 4096);
-        uint64_t physicalAddress = pmm.allocFrame_PMM();
+        uint64_t physicalAddress = pmm.allocFrame();
 
         if (!physicalAddress)
         {
@@ -196,7 +201,7 @@ extern "C" void kernelMain()
     TTY::putString("[ OK ] ", TTY::Color::LIME);
     TTY::putString("Kernel heap mapped successfully.\n", TTY::Color::WHITE);
 
-    bool heapInitResult = Libc::Memory::kmallocInit(KERNEL_HEAP_START, KERNEL_HEAP_INITIAL, &vmm, &pmm);
+    bool heapInitResult = Libc::Memory::kmallocInit(KERNEL_HEAP_START, KERNEL_HEAP_INITIAL);
     if (!heapInitResult)
     {
         TTY::putString("[FAIL] ", TTY::Color::RED);

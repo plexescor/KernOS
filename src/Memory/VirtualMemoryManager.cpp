@@ -127,7 +127,7 @@ void VirtualMemoryManager::mapKernelPrerequisites()
 
 uint64_t VirtualMemoryManager::createTable()
 {
-    uint64_t physical = pmm->allocFrame_PMM();
+    uint64_t physical = pmm->allocFrame();
     // TODO: Verify OOM
     Libc::Memory::kmemset((uint8_t*)physicalToVirtual(physical), 0, 4096);
     return physical;

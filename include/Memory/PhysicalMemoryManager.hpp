@@ -6,7 +6,7 @@ class PhysicalMemoryManager
     public:
         PhysicalMemoryManager();
         ~PhysicalMemoryManager() = default;
-        uint64_t allocFrame_PMM();
+        uint64_t allocFrame();
         void freeFrame_PMM(uint64_t address);
         struct limine_hhdm_response* getHDDM();
         struct limine_memmap_response* getMemoryMap_Limine();

@@ -5,7 +5,6 @@ namespace CPU
 {
     namespace APIC
     {
-        void setVMM(VirtualMemoryManager* vmm);
         void disableLegacyPIC();
         void mapMMIO(uint64_t physBase, uint64_t size);
         void enableLAPICGlobally();

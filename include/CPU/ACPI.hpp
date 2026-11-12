@@ -126,6 +126,6 @@ namespace CPU
         ACPIDescriptionHeader* findTable(const char signature[4]);
         bool iterateMADTTable();
         bool iterateMCFGTable();
-        bool ACPI_Initialise(VirtualMemoryManager* vmm_P, PhysicalMemoryManager* pmm_P);
+        bool ACPI_Initialise();
     } // ACPI
 } // CPU

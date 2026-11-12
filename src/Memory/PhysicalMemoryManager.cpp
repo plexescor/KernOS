@@ -133,7 +133,7 @@ bool PhysicalMemoryManager::initialiseBitmap()
 }
 
 // Returns physical address of a page
-uint64_t PhysicalMemoryManager::allocFrame_PMM()
+uint64_t PhysicalMemoryManager::allocFrame()
 {
     for (uint64_t byte = 0; byte < bitmapBytes; byte++)
     {

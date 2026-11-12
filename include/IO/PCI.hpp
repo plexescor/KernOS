@@ -39,7 +39,7 @@ namespace IO::PCI
         constexpr uint8_t NVMe = 0x02;
     }
 
-    void PCIInit(uint64_t configBase, uint64_t busStart, uint64_t busEnd, VirtualMemoryManager* vmm_P);
+    void PCIInit(uint64_t configBase, uint64_t busStart, uint64_t busEnd);
     uint64_t getECAMPhysical(uint8_t bus, uint8_t device, uint8_t function);
     void enumerate();
     uint64_t getBAR0_NVME();

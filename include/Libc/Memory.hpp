@@ -26,7 +26,7 @@ namespace Libc
         };
         void kmemset(void* address, uint8_t value, size_t size);
         bool kgrowHeap(uint64_t size, Libc::Memory::BlockHeader* lastBlock);
-        bool kmallocInit(uint64_t heapStart, uint64_t heapSize, VirtualMemoryManager* vmm_P, PhysicalMemoryManager* pmm_P);
+        bool kmallocInit(uint64_t heapStart, uint64_t heapSize);
         void* kmalloc(uint64_t size);
         void kfree(void* address);
     }

@@ -7,6 +7,7 @@
 
 #define HEAP_MIN_SPLIT 32ULL
 
+
 void* operator new(uint64_t size)
 {
     return Libc::Memory::kmalloc(size);
@@ -38,8 +39,9 @@ void operator delete[](void* ptr, uint64_t size)
 }
 
 static Libc::Memory::BlockHeader* headBlock = nullptr;
-static VirtualMemoryManager* vmm = nullptr;
-static PhysicalMemoryManager* pmm = nullptr;
+
+extern VirtualMemoryManager* vmm_G;
+extern PhysicalMemoryManager* pmm_G;
 
 void Libc::Memory::kmemset(void* address, uint8_t value, size_t size)
 {
@@ -63,9 +65,9 @@ bool Libc::Memory::kgrowHeap(uint64_t size, Libc::Memory::BlockHeader* lastBlock
     // Now map the required pages
     for (uint64_t page = 0; page < pages; page++)
     {
-        uint64_t physicalAddress = pmm->allocFrame_PMM();
+        uint64_t physicalAddress = pmm_G->allocFrame();
         if (!physicalAddress) return false;
-        vmm->mapPage(lastAddress + page * 4096, physicalAddress, PAGE_PRESENT | PAGE_WRITABLE | PAGE_NX);
+        vmm_G->mapPage(lastAddress + page * 4096, physicalAddress, PAGE_PRESENT | PAGE_WRITABLE | PAGE_NX);
     }
 
     // Now if the last block is free, then just extend it
@@ -85,11 +87,9 @@ bool Libc::Memory::kgrowHeap(uint64_t size, Libc::Memory::BlockHeader* lastBlock
 }
 
 // P stands for parameter variant
-bool Libc::Memory::kmallocInit(uint64_t heapStart, uint64_t heapSize, VirtualMemoryManager* vmm_P, PhysicalMemoryManager* pmm_P)
+bool Libc::Memory::kmallocInit(uint64_t heapStart, uint64_t heapSize)
 {
-    if (!vmm_P || !pmm_P) return false;
-    vmm = vmm_P;
-    pmm = pmm_P;
+    if (!vmm_G || !pmm_G) return false;
     headBlock = (Libc::Memory::BlockHeader*)heapStart;
     headBlock->size = heapSize - sizeof(Libc::Memory::BlockHeader);
     headBlock->isFree = true;

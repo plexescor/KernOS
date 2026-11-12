@@ -27,16 +27,12 @@
 #define IOAPICREDTBL(n) (0x10 + 2 * n)
 
 
-static VirtualMemoryManager* vmm = nullptr;
+extern VirtualMemoryManager* vmm_G;
+
 static uint64_t IOAPICBase = 0xFEC00000;
 static uint32_t keyboardGSI = 1; // Safe defaults
 static uint16_t keyboardFlags = 0;
 static uint64_t LAPICBase = 0xFEE00000;  // safe default
-
-void CPU::APIC::setVMM(VirtualMemoryManager* v)
-{
-    vmm = v;
-}
 
 void CPU::APIC::mapMMIO(uint64_t physBase, uint64_t size)
 {
@@ -44,7 +40,7 @@ void CPU::APIC::mapMMIO(uint64_t physBase, uint64_t size)
     for (uint64_t i = 0; i < pages; i++)
     {
         uint64_t addr = physBase + i * 4096;
-        vmm->mapPage(addr, addr, PAGE_PRESENT | PAGE_WRITABLE | PAGE_CACHE_DISABLE);
+        vmm_G->mapPage(addr, addr, PAGE_PRESENT | PAGE_WRITABLE | PAGE_CACHE_DISABLE);
     }
 }
 
