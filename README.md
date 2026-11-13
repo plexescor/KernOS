@@ -30,12 +30,14 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 - PCI enumeration via ECAM
 
 **In progress:**
-- NVMe driver (Written AQA, ASQ, ACQ registers, Stage 5 out of total 10 done)
+- NVMe driver (Basic version works, need to squash some bugs)
 
 **Not started yet:**
-- Filesystem
+- Filesystem (ext2)
 - Userspace, ELF loader, syscalls
+- Libc
 - Scheduler
+- GCC Porting
 
 ## Requirements
 
