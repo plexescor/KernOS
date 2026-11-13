@@ -223,11 +223,11 @@ void Driver::IO::NVMe::submitAdminCommand(SubmissionQueueEntry* entry)
 
 bool Driver::IO::NVMe::pollAdminCommandCompletion()
 {
-    CompletionQueueEntry* cq = reinterpret_cast<CompletionQueueEntry*>(ACQVirtual);
+    volatile CompletionQueueEntry* cq = reinterpret_cast<volatile CompletionQueueEntry*>(ACQVirtual);
     while (true)
     {
         // TODO add a timeout here too
-        CompletionQueueEntry* entry = &cq[adminCQHead];
+        volatile CompletionQueueEntry* entry = &cq[adminCQHead];
         if ((entry->status & 0x1) == adminCQPhase)
         {
             // Got a completion
@@ -262,11 +262,11 @@ void Driver::IO::NVMe::submitIOCommand(SubmissionQueueEntry* entry)
 
 bool Driver::IO::NVMe::pollIOCommandCompletion()
 {
-    CompletionQueueEntry* cq = reinterpret_cast<CompletionQueueEntry*>(IOCQVirtual);
+    volatile CompletionQueueEntry* cq = reinterpret_cast<volatile CompletionQueueEntry*>(IOCQVirtual);
     while (true)
     {
         // TODO add a timeout here too
-        CompletionQueueEntry* entry = &cq[IOCQHead];
+        volatile CompletionQueueEntry* entry = &cq[IOCQHead];
         if ((entry->status & 0x1) == IOCQPhase)
         {
             // Got a completion
@@ -392,10 +392,8 @@ bool Driver::IO::NVMe::initialiseAdminQueue()
     ASQPhysical = pmm_G->allocFrame();
     ACQPhysical = pmm_G->allocFrame();
 
-    // x86-64 does some snooping shit so we can omit the PAGE_CACHE_DISABLE,
-    // if any issues occur, just add them here
-    vmm_G->mapPage(ASQPhysical, ASQPhysical, PAGE_WRITABLE | PAGE_PRESENT | PAGE_NX);
-    vmm_G->mapPage(ACQPhysical, ACQPhysical, PAGE_WRITABLE | PAGE_PRESENT | PAGE_NX);
+    vmm_G->mapPage(ASQPhysical, ASQPhysical, PAGE_WRITABLE | PAGE_PRESENT | PAGE_NX | PAGE_CACHE_DISABLE);
+    vmm_G->mapPage(ACQPhysical, ACQPhysical, PAGE_WRITABLE | PAGE_PRESENT | PAGE_NX | PAGE_CACHE_DISABLE);
     ASQVirtual = vmm_G->physicalToVirtual(ASQPhysical);
     ACQVirtual = vmm_G->physicalToVirtual(ACQPhysical);
 
@@ -580,8 +578,10 @@ bool Driver::IO::NVMe::API::readSectors(uint64_t sectorStart, uint64_t sectorCou
     return true;
 }
 
-// BUG, sometimes the NSZE is 0 (totalSectors) causing init to fail
-// BUG, sometimes readSector hangs
+// FIXED, sometimes the NSZE is 0 (totalSectors) causing init to fail
+// FIXED, sometimes readSector hangs
+// The above shit was fixed by adding fucking volatile fucking flag fuck you compiler
+// ^__^
 // There may be other b_u_g_s which i havent found
 // i wrote b_u_g_s like that so searching the codebase for that string will only bring out genuine issues
 // and not generic strings which contain the string being searched for
@@ -641,15 +641,29 @@ bool Driver::IO::NVMe::Test::testRound()
     }
     // ::TTY::putString("[TEST] After write\n", TTY::Color::WHITE);
 
-    Libc::Memory::kmemset((void*)virtualBuffer, 0, 4096);
+    // Libc::Memory::kmemset((void*)virtualBuffer, 0, 4096);
 
-    if (!Driver::IO::NVMe::API::readSectors(1, 1, commonBuffer))
+    uint64_t commonBuffer2 = pmm_G->allocFrame();
+    if (!commonBuffer2) 
+    {
+        ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
+        ::TTY::putString("Could not allocate a free frame! OOM?\n", TTY::Color::WHITE);
+    }
+    uint64_t virtualBuffer2 = vmm_G->physicalToVirtual(commonBuffer2);
+    vmm_G->mapPage(virtualBuffer2, commonBuffer2, PAGE_NX | PAGE_PRESENT | PAGE_WRITABLE);
+
+    Libc::Memory::kmemset((void*)virtualBuffer2, 0, 4096);
+
+    uint8_t* vbuf2 = reinterpret_cast<uint8_t*>(virtualBuffer2);
+
+
+    if (!Driver::IO::NVMe::API::readSectors(1, 1, commonBuffer2))
     {
         ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
         ::TTY::putString("Error while reading sectors from disk!\n", TTY::Color::WHITE);
     }
 
-    if (vbuf[0] == 'h' && vbuf[1] == 'e' && vbuf[2] == 'l' && vbuf[3] == 'l' && vbuf[4] == 'o')
+    if (vbuf2[0] == 'h' && vbuf2[1] == 'e' && vbuf2[2] == 'l' && vbuf2[3] == 'l' && vbuf2[4] == 'o')
     {
         ::TTY::putString("[PASS] ", ::TTY::Color::LIME);
         ::TTY::putString("Disk round test passed!\n", TTY::Color::WHITE);
