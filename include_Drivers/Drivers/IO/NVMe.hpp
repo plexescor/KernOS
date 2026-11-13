@@ -112,9 +112,21 @@ namespace Driver::IO::NVMe
         uint16_t commandID;
         uint16_t status;
     };
+    bool initialiseController();
+    bool initialiseIdentity();
+    bool initialiseAdminQueue();
+    bool initialiseIOQueue();
     bool initialiseNamespaceData();
     void printNVMeInfo(uint64_t identity);
     void submitAdminCommand(SubmissionQueueEntry* entry);
-    bool pollAdminCommandCompletion(uint16_t commandID);
+    bool pollAdminCommandCompletion();
+    void submitIOCommand(SubmissionQueueEntry* entry);
+    bool pollIOCommandCompletion();
     bool initialise();
+
+    namespace API
+    {
+        bool readSectors(uint64_t sectorStart, uint64_t sectorCount, uint64_t bufferPhysical);
+        bool writeSectors(uint64_t sectorStart, uint64_t sectorCount, uint64_t bufferPhysical);
+    }
 }

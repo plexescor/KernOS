@@ -50,22 +50,31 @@ uint64_t minimumSupportedPageSize;
 // CC
 uint32_t controllerConfiguration;
 
+// ADMIN QUEUES
 // Addresses
 uint64_t ASQPhysical;
 uint64_t ACQPhysical;
-
 uint64_t ASQVirtual;
 uint64_t ACQVirtual;
-
 // Identity buffer
 uint64_t identity;
 uint64_t identityNamespace;
-
 // Queue state
 uint32_t adminSQTail = 0;
 uint32_t adminCQHead = 0;
 uint16_t adminCQPhase = 1;
 uint16_t adminCommandID = 0;
+
+// IO QUEUES
+uint64_t IOSQPhysical;
+uint64_t IOCQPhysical;
+uint64_t IOSQVirtual;
+uint64_t IOCQVirtual;
+// Queue state
+uint32_t IOSQTail = 0;
+uint32_t IOCQHead = 0;
+uint16_t IOCQPhase = 1;
+uint16_t IOCommandID = 0;
 
 // Drive namespace info or whatever
 uint64_t totalSectors;
@@ -90,6 +99,42 @@ static void mmioWrite(uint64_t base, uint64_t offset, T value)
 
 bool Driver::IO::NVMe::initialiseNamespaceData()
 {
+    // Identifying the namespace
+    // Get a new page for it
+    identityNamespace = pmm_G->allocFrame();
+    if (!identityNamespace) return false;
+    uint64_t identityNamespaceVirt = vmm_G->physicalToVirtual(identityNamespace);
+
+    vmm_G->mapPage(identityNamespaceVirt, identityNamespace, PAGE_CACHE_DISABLE | PAGE_NX | PAGE_PRESENT | PAGE_WRITABLE);
+    Libc::Memory::kmemset((void*)identityNamespaceVirt, 0, 4096);
+
+    SubmissionQueueEntry identifyNamespaceEntry =
+    {
+        .opcode = 0x06,
+        .flags = 0x00,
+        .commandID = 2,
+        .NSID = 0x01,
+        .reserved = 0x00,
+        .MPTR = 0x00,
+        .PRP1 = identityNamespace,
+        .PRP2 = 0x00,
+        .CDW10 = 0x00,
+        .CDW11 = 0x00,
+        .CDW12 = 0x00,
+        .CDW13 = 0x00,
+        .CDW14 = 0x00,
+        .CDW15 = 0x00
+    };
+
+    identifyNamespaceEntry.commandID = ++adminCommandID;
+    Driver::IO::NVMe::submitAdminCommand(&identifyNamespaceEntry);
+    if (!Driver::IO::NVMe::pollAdminCommandCompletion())
+    {
+        ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
+        ::TTY::putString("NVMe Namespace Identify command failed!\n", ::TTY::Color::WHITE);
+        return false;
+    }
+
     char bufTotalSectors[21];
     char bufActiveIndex[21];
     char bufSectorSize[21];
@@ -98,14 +143,13 @@ bool Driver::IO::NVMe::initialiseNamespaceData()
     char bufTotalBytes[21];
     char bufTotalUsableBytes[21];
 
-    uint64_t identityNamespaceVirt = vmm_G->physicalToVirtual(identityNamespace);
     IdentifyNamespaceData* data = reinterpret_cast<IdentifyNamespaceData*>(identityNamespaceVirt);
 
     totalSectors = data->NSZE;
     if (totalSectors == 0)
     {
         ::TTY::putString("[FAIL] ", TTY::Color::RED);
-        ::TTY::putString("NSZE is 0 — invalid namespace!\n", TTY::Color::WHITE);
+        ::TTY::putString("NSZE is 0 invalid namespace!\n", TTY::Color::WHITE);
         return false;
     }
     ::TTY::putString("[INFO] ", TTY::Color::CYAN);
@@ -178,7 +222,7 @@ void Driver::IO::NVMe::submitAdminCommand(SubmissionQueueEntry* entry)
     mmioWrite<uint32_t>(NVMEBAR0, sqDoorbellOffset, adminSQTail);
 }
 
-bool Driver::IO::NVMe::pollAdminCommandCompletion(uint16_t commandID)
+bool Driver::IO::NVMe::pollAdminCommandCompletion()
 {
     CompletionQueueEntry* cq = reinterpret_cast<CompletionQueueEntry*>(ACQVirtual);
     while (true)
@@ -197,6 +241,45 @@ bool Driver::IO::NVMe::pollAdminCommandCompletion(uint16_t commandID)
             // Ring CQ doorbell
             uint32_t cqDoorbellOffset = DOORBELL + (2 * 0 + 1) * (4 << doorbellStride);
             mmioWrite<uint32_t>(NVMEBAR0, cqDoorbellOffset, adminCQHead);
+
+            return statusCode == 0; // 0 = success
+        }
+    }
+
+}
+
+
+void Driver::IO::NVMe::submitIOCommand(SubmissionQueueEntry* entry)
+{
+    SubmissionQueueEntry* sq = reinterpret_cast<SubmissionQueueEntry*>(IOSQVirtual);
+    sq[IOSQTail] = *entry;
+
+    IOSQTail = (IOSQTail + 1) % 64;
+
+    // Notify the controller shit changed
+    uint32_t sqDoorbellOffset = DOORBELL + (2 * 1) * (4 << doorbellStride);
+    mmioWrite<uint32_t>(NVMEBAR0, sqDoorbellOffset, IOSQTail);
+}
+
+bool Driver::IO::NVMe::pollIOCommandCompletion()
+{
+    CompletionQueueEntry* cq = reinterpret_cast<CompletionQueueEntry*>(IOCQVirtual);
+    while (true)
+    {
+        // TODO add a timeout here too
+        CompletionQueueEntry* entry = &cq[IOCQHead];
+        if ((entry->status & 0x1) == IOCQPhase)
+        {
+            // Got a completion
+            uint16_t statusCode = (entry->status >> 1) & 0xFF;
+
+            // Advance head
+            IOCQHead = (IOCQHead + 1) % 64;
+            if (IOCQHead == 0) IOCQPhase ^= 1; // wrapped, flip phase
+
+            // Ring CQ doorbell
+            uint32_t cqDoorbellOffset = DOORBELL + (2 * 1 + 1) * (4 << doorbellStride);
+            mmioWrite<uint32_t>(NVMEBAR0, cqDoorbellOffset, IOCQPhase);
 
             return statusCode == 0; // 0 = success
         }
@@ -228,8 +311,23 @@ void Driver::IO::NVMe::printNVMeInfo(uint64_t identity)
 bool Driver::IO::NVMe::initialise()
 {
     if (!vmm_G) return false;
-    NVMEBAR0 = ::IO::PCI::getBAR0_NVME();
+    
+    if (!Driver::IO::NVMe::initialiseController()) return false;
+    if (!Driver::IO::NVMe::initialiseAdminQueue()) return false;
+    if (!Driver::IO::NVMe::initialiseIdentity()) return false;
+    if (!Driver::IO::NVMe::initialiseNamespaceData()) return false;
+    if (!Driver::IO::NVMe::initialiseIOQueue()) return false;
 
+
+
+    ::TTY::putString("[ OK ] ", ::TTY::Color::LIME);
+    ::TTY::putString("NVMe Initialisation successful!\n", ::TTY::Color::WHITE);
+    return true;
+}
+
+bool Driver::IO::NVMe::initialiseController()
+{
+    NVMEBAR0 = ::IO::PCI::getBAR0_NVME();
     char buffer[21];
     uint64ToHex(NVMEBAR0, buffer);
     ::TTY::putString("[TEST] ", ::TTY::Color::CYAN);
@@ -286,7 +384,11 @@ bool Driver::IO::NVMe::initialise()
     }
     ::TTY::putString("[ OK ] ", ::TTY::Color::LIME);
     ::TTY::putString("NVMe Controller reset successfully...\n", ::TTY::Color::WHITE);
+    return true;
+}
 
+bool Driver::IO::NVMe::initialiseAdminQueue()
+{
     // Now allocate two pages for ASQ, and ACQ
     ASQPhysical = pmm_G->allocFrame();
     ACQPhysical = pmm_G->allocFrame();
@@ -337,6 +439,11 @@ bool Driver::IO::NVMe::initialise()
     ::TTY::putString("[ OK ] ", ::TTY::Color::LIME);
     ::TTY::putString("NVMe Controller initialised successfully...\n", ::TTY::Color::WHITE);
 
+    return true;
+}
+
+bool Driver::IO::NVMe::initialiseIdentity()
+{
     // Now we get info from the NVMe
     identity = pmm_G->allocFrame();
     if (!identity) return false;
@@ -371,7 +478,7 @@ bool Driver::IO::NVMe::initialise()
 
     identifyEntry.commandID = ++adminCommandID;
     Driver::IO::NVMe::submitAdminCommand(&identifyEntry);
-    if (!Driver::IO::NVMe::pollAdminCommandCompletion(adminCommandID))
+    if (!Driver::IO::NVMe::pollAdminCommandCompletion())
     {
         ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
         ::TTY::putString("NVMe Identify command failed!\n", ::TTY::Color::WHITE);
@@ -386,47 +493,75 @@ bool Driver::IO::NVMe::initialise()
     // ::TTY::putString("\n", ::TTY::Color::WHITE);
 
     Driver::IO::NVMe::printNVMeInfo(identityVirt);
+    return true;
+}
 
+bool Driver::IO::NVMe::initialiseIOQueue()
+{
+    IOCQPhysical = pmm_G->allocFrame();
+    IOSQPhysical = pmm_G->allocFrame();
+    if (!IOCQPhysical || !IOSQPhysical) return false;
+    
+    vmm_G->mapPage(IOCQPhysical, IOCQPhysical, PAGE_CACHE_DISABLE | PAGE_NX | PAGE_PRESENT | PAGE_WRITABLE);
+    vmm_G->mapPage(IOSQPhysical, IOSQPhysical, PAGE_CACHE_DISABLE | PAGE_NX | PAGE_PRESENT | PAGE_WRITABLE);
+    IOCQVirtual = vmm_G->physicalToVirtual(IOCQPhysical);
+    IOSQVirtual = vmm_G->physicalToVirtual(IOSQPhysical);
 
-    // Identifying the namespace
-    // Get a new page for it
-    identityNamespace = pmm_G->allocFrame();
-    if (!identityNamespace) return false;
-    uint64_t identityNamespaceVirt = vmm_G->physicalToVirtual(identityNamespace);
+    Libc::Memory::kmemset((void*)IOCQVirtual, 0, 4096);
+    Libc::Memory::kmemset((void*)IOSQVirtual, 0, 4096);
 
-    vmm_G->mapPage(identityNamespaceVirt, identityNamespace, PAGE_CACHE_DISABLE | PAGE_NX | PAGE_PRESENT | PAGE_WRITABLE);
-    Libc::Memory::kmemset((void*)identityNamespaceVirt, 0, 4096);
-
-    SubmissionQueueEntry identifyNamespaceEntry =
+    SubmissionQueueEntry createCQEntry =
     {
-        .opcode = 0x06,
-        .flags = 0x00,
-        .commandID = 2,
-        .NSID = 0x01,
-        .reserved = 0x00,
-        .MPTR = 0x00,
-        .PRP1 = identityNamespace,
-        .PRP2 = 0x00,
-        .CDW10 = 0x00,
-        .CDW11 = 0x00,
-        .CDW12 = 0x00,
-        .CDW13 = 0x00,
-        .CDW14 = 0x00,
-        .CDW15 = 0x00
+        .opcode    = 0x05,
+        .flags     = 0x00,
+        .commandID = ++adminCommandID,
+        .NSID      = 0x00,
+        .reserved  = 0x00,
+        .MPTR      = 0x00,
+        .PRP1      = IOCQPhysical,
+        .PRP2      = 0x00,
+        .CDW10     = (63 << 16) | 1,
+        .CDW11     = 0x1,
+        .CDW12     = 0x00,
+        .CDW13     = 0x00,
+        .CDW14     = 0x00,
+        .CDW15     = 0x00
     };
 
-    identifyNamespaceEntry.commandID = ++adminCommandID;
-    Driver::IO::NVMe::submitAdminCommand(&identifyNamespaceEntry);
-    if (!Driver::IO::NVMe::pollAdminCommandCompletion(adminCommandID))
+    SubmissionQueueEntry createSQEntry =
     {
-        ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
-        ::TTY::putString("NVMe Namespace Identify command failed!\n", ::TTY::Color::WHITE);
-        return false;
-    }
+        .opcode    = 0x01,
+        .flags     = 0x00,
+        .commandID = ++adminCommandID,
+        .NSID      = 0x00,
+        .reserved  = 0x00,
+        .MPTR      = 0x00,
+        .PRP1      = IOSQPhysical, 
+        .PRP2      = 0x00,
+        .CDW10     = (63 << 16) | 1,
+        .CDW11     = (1 << 16) | 0x1,
+        .CDW12     = 0x00,
+        .CDW13     = 0x00,
+        .CDW14     = 0x00,
+        .CDW15     = 0x00
+    };
 
-    if(!Driver::IO::NVMe::initialiseNamespaceData()) return false;
+    submitAdminCommand(&createCQEntry);
+    if (!pollAdminCommandCompletion()) return false;
 
-    ::TTY::putString("[ OK ] ", ::TTY::Color::LIME);
-    ::TTY::putString("NVMe Initialisation successful!\n", ::TTY::Color::WHITE);
+    submitAdminCommand(&createSQEntry);
+    if (!pollAdminCommandCompletion()) return false;
+
+    return true;
+}
+
+// Now the actual API ~everyone~ will use
+bool Driver::IO::NVMe::API::readSectors(uint64_t sectorStart, uint64_t sectorCount, uint64_t bufferPhysical)
+{
+    return true;
+}
+
+bool Driver::IO::NVMe::API::writeSectors(uint64_t sectorStart, uint64_t sectorCount, uint64_t bufferPhysical)
+{
     return true;
 }

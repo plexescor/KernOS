@@ -5,7 +5,6 @@
 #include <cstdint>
 #include <cpuid.h>
 
-// TODO: Mask the interrupts durning boot process
 // PIC related macros
 #define PIC1_COMMAND 0x20
 #define PIC1_DATA    0x21
@@ -28,6 +27,8 @@
 
 
 extern VirtualMemoryManager* vmm_G;
+extern void uint64ToHex(uint64_t value, char* buffer);
+extern const char* uint64ToString(uint64_t value, char* bufferOut, int bufferSize);
 
 static uint64_t IOAPICBase = 0xFEC00000;
 static uint32_t keyboardGSI = 1; // Safe defaults
@@ -116,77 +117,74 @@ bool CPU::APIC::initialiseIOAPIC(uint64_t address, uint32_t keyboardGSI_P, uint1
     return true;
 }
 
-static void ps2Wait()
-{
-    uint32_t timeout = 100000;
-    while ((IO::Port::inb(0x64) & 0x2) && timeout--);
-}
-
-static void ps2WaitRead()
-{
-    uint32_t timeout = 100000;
-    while (!(IO::Port::inb(0x64) & 0x1) && timeout--)
-        ;
-}
-// uint8_t CPU::APIC::getLAPICID()
-// {
-//     volatile uint32_t* lapicID = (volatile uint32_t*)(vmm->physicalToVirtual(LAPIC_BASE) + 0x20);
-//     return (*lapicID >> 24) & 0xFF;
-// }
-void CPU::APIC::initPS2()
-{
-    ps2Wait(); IO::Port::outb(0x64, 0xAD);
-    ps2Wait(); IO::Port::outb(0x64, 0xA7);
-
-    IO::Port::inb(0x60);
-
-    ps2Wait(); IO::Port::outb(0x64, 0x20);
-    ps2WaitRead();
-    uint8_t config = IO::Port::inb(0x60);
-
-    config |= (1 << 0);
-    config &= ~(1 << 1);
-
-    ps2Wait(); IO::Port::outb(0x64, 0x60);
-    ps2Wait(); IO::Port::outb(0x60, config);
-
-    ps2Wait(); IO::Port::outb(0x64, 0xAE);
-
-    ps2Wait(); IO::Port::outb(0x60, 0xFF);
-    ps2WaitRead(); IO::Port::inb(0x60);
-    ps2WaitRead(); IO::Port::inb(0x60);
-
-    ps2Wait(); IO::Port::outb(0x60, 0xF4);
-    ps2WaitRead(); IO::Port::inb(0x60);
-}
-
 void CPU::APIC::IOAPICSetupKeyboard(uint8_t IDTVector, uint8_t LAPICID)
 {
     uint8_t status = IO::Port::inb(0x64);
     if (status == 0xFF)
     {
-        // 0xFF means no controller present
         TTY::putString("[WARN] No PS/2 controller found!\n", TTY::Color::YELLOW);
+        return;
     }
-    CPU::APIC::initPS2();
+
+    // Initialize the 8042 PS/2 controller
+    auto waitInput = []()
+    {
+        while (IO::Port::inb(0x64) & 0x2)
+            IO::Port::IOWait();
+    };
+
+    waitInput();
+    IO::Port::outb(0x64, 0xAE);   // Enable keyboard port
+    IO::Port::IOWait();
+
+    waitInput();
+    IO::Port::outb(0x64, 0x20);   // Read config byte
+    IO::Port::IOWait();
+    uint8_t config = IO::Port::inb(0x60);
+    config |= (1 << 0);            // Enable IRQ1
+    config &= ~(1 << 4);           // Un-disable keyboard
+
+    waitInput();
+    IO::Port::outb(0x64, 0x60);   // Write config byte
+    IO::Port::IOWait();
+    waitInput();
+    IO::Port::outb(0x60, config);
+    IO::Port::IOWait();
+
+    // Build REDTBL entry
     uint32_t lowBits = IDTVector;
-
-    if (keyboardFlags & 0x2)
-        lowBits |= (1 << 13);
-
-    if (keyboardFlags & 0x8)
-        lowBits |= (1 << 15);
+    if (keyboardFlags & 0x2) lowBits |= (1 << 13);  // polarity
+    if (keyboardFlags & 0x8) lowBits |= (1 << 15);  // trigger mode
     uint32_t highBits = ((uint32_t)LAPICID) << 24;
+
+    // Debug prints
+    char buf1[21], buf2[21];
+    char buf3[21], buf4[21];
+
+    TTY::putString("[DBG] keyboardGSI: ", TTY::Color::CYAN);
+    TTY::putString(uint64ToString(keyboardGSI, buf1, 21), TTY::Color::YELLOW);
+    TTY::putString("\n", TTY::Color::WHITE);
+
+    TTY::putString("[DBG] keyboardFlags: ", TTY::Color::CYAN);
+    TTY::putString(uint64ToString(keyboardFlags, buf2, 21), TTY::Color::YELLOW);
+    TTY::putString("\n", TTY::Color::WHITE);
+
+    TTY::putString("[DBG] lowBits: ", TTY::Color::CYAN);
+    uint64ToHex(lowBits, buf3);
+    TTY::putString(buf3, TTY::Color::YELLOW);
+    TTY::putString("\n", TTY::Color::WHITE);
+
+    TTY::putString("[DBG] highBits: ", TTY::Color::CYAN);
+    uint64ToHex(highBits, buf4);
+    TTY::putString(buf4, TTY::Color::YELLOW);
+    TTY::putString("\n", TTY::Color::WHITE);
 
     writeIOAPIC(IOAPICREDTBL(keyboardGSI), lowBits);
     writeIOAPIC(IOAPICREDTBL(keyboardGSI) + 1, highBits);
 
-    IO::Port::inb(0x61);
-
-    // Drain any pending scancodes from the PS/2 buffer
+    // Drain pending scancodes
     while (IO::Port::inb(0x64) & 0x1)
         IO::Port::inb(0x60);
 
-    // Clear any stuck LAPIC interrupt
     CPU::APIC::LAPICEOI();
 }

@@ -17,7 +17,7 @@ uint8_t IO::Port::inb(uint16_t port)
     return ret;
 }
 
-void IO::Port::io_wait(void)
+void IO::Port::IOWait(void)
 {
     outb(0x80, 0);
 }
