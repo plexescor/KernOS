@@ -62,6 +62,47 @@ namespace Driver::IO::NVMe
         uint8_t  reserved3[3574];   // Bytes 522..4095: Power State Descriptors & Vendor Specific
     };
 
+    // NVMe Identify Namespace Data Structure (NVM Express 1.4+ spec, section 5.15.2)
+    struct  __attribute__((packed)) IdentifyNamespaceData
+    {
+        uint64_t NSZE;        // Namespace Size, total LBAs
+        uint64_t NCAP;        // Namespace Capacity, usable LBAs
+        uint64_t NUSE;        // Namespace Utilization, currently used LBAs
+        uint8_t  NSFEAT;      // Namespace Features
+        uint8_t  NLBAF;       // Number of LBA Formats (0-based)
+        uint8_t  FLBAS;       // Formatted LBA Size, bits[3:0] = active format index
+        uint8_t  MC;          // Metadata Capabilities
+        uint8_t  DPC;         // End-to-end Data Protection Capabilities
+        uint8_t  DPS;         // End-to-end Data Protection Settings
+        uint8_t  NMIC;        // Namespace Multi-path I/O and Namespace Sharing Capabilities
+        uint8_t  RESCAP;      // Reservation Capabilities
+        uint8_t  FPI;         // Format Progress Indicator
+        uint8_t  DLFEAT;      // Deallocate Logical Block Features
+        uint16_t NAWUN;       // Namespace Atomic Write Unit Normal
+        uint16_t NAWUPF;      // Namespace Atomic Write Unit Power Fail
+        uint16_t NACWU;       // Namespace Atomic Compare & Write Unit
+        uint16_t NABSN;       // Namespace Atomic Boundary Size Normal
+        uint16_t NABO;        // Namespace Atomic Boundary Offset
+        uint16_t NABSPF;      // Namespace Atomic Boundary Size Power Fail
+        uint16_t NOIOB;       // Namespace Optimal I/O Boundary
+        uint8_t  NVMCAP[16];  // NVM Capacity in bytes (128-bit)
+        uint8_t  reserved1[40];
+        uint8_t  NGUID[16];   // Namespace Globally Unique Identifier
+        uint64_t EUI64;       // IEEE Extended Unique Identifier
+        
+        // LBA Format descriptors, up to 16 entries
+        struct LBAFormat
+        {
+            uint16_t MS;      // Metadata Size
+            uint8_t  LBADS;   // LBA Data Size, sector = 2^LBADS bytes
+            uint8_t  RP;      // Relative Performance (bits[1:0])
+        } LBAF[16];           // bytes 128–191
+        
+        uint8_t reserved2[192];
+        uint8_t vendorSpecific[3712];
+
+    };
+
     struct __attribute__((packed)) CompletionQueueEntry
     {
         uint32_t result;
@@ -71,6 +112,7 @@ namespace Driver::IO::NVMe
         uint16_t commandID;
         uint16_t status;
     };
+    bool initialiseNamespaceData();
     void printNVMeInfo(uint64_t identity);
     void submitAdminCommand(SubmissionQueueEntry* entry);
     bool pollAdminCommandCompletion(uint16_t commandID);

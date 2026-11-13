@@ -4,6 +4,7 @@
 #include "Libc/Memory.hpp"
 #include "IO/PCI.hpp"
 #include "TTY/TTY.hpp"
+#include <cassert>
 #include <cstdint>
 
 uint64_t NVMEBAR0 = 0;
@@ -58,6 +59,7 @@ uint64_t ACQVirtual;
 
 // Identity buffer
 uint64_t identity;
+uint64_t identityNamespace;
 
 // Queue state
 uint32_t adminSQTail = 0;
@@ -65,6 +67,14 @@ uint32_t adminCQHead = 0;
 uint16_t adminCQPhase = 1;
 uint16_t adminCommandID = 0;
 
+// Drive namespace info or whatever
+uint64_t totalSectors;
+uint8_t activeIndex;
+uint64_t sectorSize;
+uint16_t metadataSize; // usually is 0 in consumer ssd, which is what we;ll target
+uint64_t usableSectors;
+uint64_t totalBytes;
+uint64_t totalUsableBytes;
 
 template<typename T>
 static T mmioRead(uint64_t base, uint64_t offset)
@@ -76,6 +86,84 @@ template<typename T>
 static void mmioWrite(uint64_t base, uint64_t offset, T value)
 {
     *reinterpret_cast<volatile T*>(base + offset) = value;
+}
+
+bool Driver::IO::NVMe::initialiseNamespaceData()
+{
+    char bufTotalSectors[21];
+    char bufActiveIndex[21];
+    char bufSectorSize[21];
+    char bufMetadataSize[21];
+    char bufUsableSectors[21];
+    char bufTotalBytes[21];
+    char bufTotalUsableBytes[21];
+
+    uint64_t identityNamespaceVirt = vmm_G->physicalToVirtual(identityNamespace);
+    IdentifyNamespaceData* data = reinterpret_cast<IdentifyNamespaceData*>(identityNamespaceVirt);
+
+    totalSectors = data->NSZE;
+    if (totalSectors == 0)
+    {
+        ::TTY::putString("[FAIL] ", TTY::Color::RED);
+        ::TTY::putString("NSZE is 0 — invalid namespace!\n", TTY::Color::WHITE);
+        return false;
+    }
+    ::TTY::putString("[INFO] ", TTY::Color::CYAN);
+    ::TTY::putString("Total Sectors (NSZE): ", TTY::Color::WHITE);
+    ::TTY::putString(uint64ToString(totalSectors, bufTotalSectors, 21), TTY::Color::YELLOW);
+    ::TTY::putString("\n", TTY::Color::WHITE);
+
+    activeIndex = data->FLBAS & 0x0F;
+    ::TTY::putString("[INFO] ", TTY::Color::CYAN);
+    ::TTY::putString("Active LBA Format Index (FLBAS): ", TTY::Color::WHITE);
+    ::TTY::putString(uint64ToString(activeIndex, bufActiveIndex, 21), TTY::Color::YELLOW);
+    ::TTY::putString("\n", TTY::Color::WHITE);
+
+    uint8_t lbads = data->LBAF[activeIndex].LBADS;
+    if (lbads < 9 || lbads > 12)
+    {
+        ::TTY::putString("[FAIL] ", TTY::Color::RED);
+        ::TTY::putString("Unsupported LBA data size (LBADS out of range)!\n", TTY::Color::WHITE);
+        return false;
+    }
+    sectorSize = 1ULL << lbads;
+    ::TTY::putString("[INFO] ", TTY::Color::CYAN);
+    ::TTY::putString("Sector Size (bytes): ", TTY::Color::WHITE);
+    ::TTY::putString(uint64ToString(sectorSize, bufSectorSize, 21), TTY::Color::YELLOW);
+    ::TTY::putString("\n", TTY::Color::WHITE);
+
+    metadataSize = data->LBAF[activeIndex].MS;
+    if (metadataSize != 0)
+    {
+        ::TTY::putString("[FAIL] ", TTY::Color::RED);
+        ::TTY::putString("Metadata sectors not supported!\n", TTY::Color::WHITE);
+        return false;
+    }
+    ::TTY::putString("[INFO] ", TTY::Color::CYAN);
+    ::TTY::putString("Metadata Size (should be 0): ", TTY::Color::WHITE);
+    ::TTY::putString(uint64ToString(metadataSize, bufMetadataSize, 21), TTY::Color::YELLOW);
+    ::TTY::putString("\n", TTY::Color::WHITE);
+
+    usableSectors = data->NCAP;
+    totalBytes = totalSectors * sectorSize;
+    totalUsableBytes = usableSectors * sectorSize;
+
+    ::TTY::putString("[INFO] ", TTY::Color::CYAN);
+    ::TTY::putString("Usable Sectors (NCAP): ", TTY::Color::WHITE);
+    ::TTY::putString(uint64ToString(usableSectors, bufUsableSectors, 21), TTY::Color::YELLOW);
+    ::TTY::putString("\n", TTY::Color::WHITE);
+
+    ::TTY::putString("[INFO] ", TTY::Color::CYAN);
+    ::TTY::putString("Total Bytes: ", TTY::Color::WHITE);
+    ::TTY::putString(uint64ToString(totalBytes, bufTotalBytes, 21), TTY::Color::YELLOW);
+    ::TTY::putString("\n", TTY::Color::WHITE);
+
+    ::TTY::putString("[INFO] ", TTY::Color::CYAN);
+    ::TTY::putString("Total Usable Bytes: ", TTY::Color::WHITE);
+    ::TTY::putString(uint64ToString(totalUsableBytes, bufTotalUsableBytes, 21), TTY::Color::YELLOW);
+    ::TTY::putString("\n", TTY::Color::WHITE);
+
+    return true;
 }
 
 void Driver::IO::NVMe::submitAdminCommand(SubmissionQueueEntry* entry)
@@ -250,11 +338,7 @@ bool Driver::IO::NVMe::initialise()
     ::TTY::putString("NVMe Controller initialised successfully...\n", ::TTY::Color::WHITE);
 
     // Now we get info from the NVMe
-    uint64_t identity = pmm_G->allocFrame();
-    uint64_t identityVirt = vmm_G->physicalToVirtual(identity);
-
-    vmm_G->mapPage(identityVirt, identity, PAGE_CACHE_DISABLE | PAGE_NX | PAGE_PRESENT | PAGE_WRITABLE);
-    Libc::Memory::kmemset((void*)identityVirt, 0, 4096);
+    identity = pmm_G->allocFrame();
     if (!identity) return false;
     if (identity & 0xFFF)
     {
@@ -262,10 +346,11 @@ bool Driver::IO::NVMe::initialise()
         ::TTY::putString("Identity buffer not page aligned!\n", ::TTY::Color::WHITE);
         return false;
     }
+    uint64_t identityVirt = vmm_G->physicalToVirtual(identity);
 
-    vmm_G->mapPage(identity, identity, PAGE_CACHE_DISABLE | PAGE_NX | PAGE_PRESENT | PAGE_WRITABLE);
-    Libc::Memory::kmemset((void*)identity, 0, 4096);
-
+    vmm_G->mapPage(identityVirt, identity, PAGE_CACHE_DISABLE | PAGE_NX | PAGE_PRESENT | PAGE_WRITABLE);
+    Libc::Memory::kmemset((void*)identityVirt, 0, 4096);
+    
     SubmissionQueueEntry identifyEntry =
     {
         .opcode = 0x06,
@@ -292,15 +377,56 @@ bool Driver::IO::NVMe::initialise()
         ::TTY::putString("NVMe Identify command failed!\n", ::TTY::Color::WHITE);
         return false;
     }
-    uint8_t* raw = reinterpret_cast<uint8_t*>(identityVirt);
-    char model[41];
-    for (int i = 0; i < 40; i++)
-        model[i] = (char)raw[24 + i];
-    model[40] = '\0';
-    ::TTY::putString(model, TTY::Color::WHITE);
-    ::TTY::putString("\n", ::TTY::Color::WHITE);
+    // uint8_t* raw = reinterpret_cast<uint8_t*>(identityVirt);
+    // char model[41];
+    // for (int i = 0; i < 40; i++)
+    //     model[i] = (char)raw[24 + i];
+    // model[40] = '\0';
+    // ::TTY::putString(model, TTY::Color::WHITE);
+    // ::TTY::putString("\n", ::TTY::Color::WHITE);
+
     Driver::IO::NVMe::printNVMeInfo(identityVirt);
+
+
+    // Identifying the namespace
+    // Get a new page for it
+    identityNamespace = pmm_G->allocFrame();
+    if (!identityNamespace) return false;
+    uint64_t identityNamespaceVirt = vmm_G->physicalToVirtual(identityNamespace);
+
+    vmm_G->mapPage(identityNamespaceVirt, identityNamespace, PAGE_CACHE_DISABLE | PAGE_NX | PAGE_PRESENT | PAGE_WRITABLE);
+    Libc::Memory::kmemset((void*)identityNamespaceVirt, 0, 4096);
+
+    SubmissionQueueEntry identifyNamespaceEntry =
+    {
+        .opcode = 0x06,
+        .flags = 0x00,
+        .commandID = 2,
+        .NSID = 0x01,
+        .reserved = 0x00,
+        .MPTR = 0x00,
+        .PRP1 = identityNamespace,
+        .PRP2 = 0x00,
+        .CDW10 = 0x00,
+        .CDW11 = 0x00,
+        .CDW12 = 0x00,
+        .CDW13 = 0x00,
+        .CDW14 = 0x00,
+        .CDW15 = 0x00
+    };
+
+    identifyNamespaceEntry.commandID = ++adminCommandID;
+    Driver::IO::NVMe::submitAdminCommand(&identifyNamespaceEntry);
+    if (!Driver::IO::NVMe::pollAdminCommandCompletion(adminCommandID))
+    {
+        ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
+        ::TTY::putString("NVMe Namespace Identify command failed!\n", ::TTY::Color::WHITE);
+        return false;
+    }
+
+    if(!Driver::IO::NVMe::initialiseNamespaceData()) return false;
+
     ::TTY::putString("[ OK ] ", ::TTY::Color::LIME);
-    ::TTY::putString("NVMe Identify successful!\n", ::TTY::Color::WHITE);
+    ::TTY::putString("NVMe Initialisation successful!\n", ::TTY::Color::WHITE);
     return true;
 }
