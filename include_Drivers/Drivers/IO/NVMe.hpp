@@ -129,4 +129,8 @@ namespace Driver::IO::NVMe
         bool readSectors(uint64_t sectorStart, uint64_t sectorCount, uint64_t bufferPhysical);
         bool writeSectors(uint64_t sectorStart, uint64_t sectorCount, uint64_t bufferPhysical);
     }
+    namespace Test
+    {
+        bool testRound();
+    }
 }

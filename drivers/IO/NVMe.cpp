@@ -112,7 +112,7 @@ bool Driver::IO::NVMe::initialiseNamespaceData()
     {
         .opcode = 0x06,
         .flags = 0x00,
-        .commandID = 2,
+        .commandID = ++adminCommandID,
         .NSID = 0x01,
         .reserved = 0x00,
         .MPTR = 0x00,
@@ -126,7 +126,6 @@ bool Driver::IO::NVMe::initialiseNamespaceData()
         .CDW15 = 0x00
     };
 
-    identifyNamespaceEntry.commandID = ++adminCommandID;
     Driver::IO::NVMe::submitAdminCommand(&identifyNamespaceEntry);
     if (!Driver::IO::NVMe::pollAdminCommandCompletion())
     {
@@ -279,7 +278,7 @@ bool Driver::IO::NVMe::pollIOCommandCompletion()
 
             // Ring CQ doorbell
             uint32_t cqDoorbellOffset = DOORBELL + (2 * 1 + 1) * (4 << doorbellStride);
-            mmioWrite<uint32_t>(NVMEBAR0, cqDoorbellOffset, IOCQPhase);
+            mmioWrite<uint32_t>(NVMEBAR0, cqDoorbellOffset, IOCQHead);
 
             return statusCode == 0; // 0 = success
         }
@@ -462,7 +461,7 @@ bool Driver::IO::NVMe::initialiseIdentity()
     {
         .opcode = 0x06,
         .flags = 0x00,
-        .commandID = 1, // For now
+        .commandID = ++adminCommandID, 
         .NSID = 0x00,
         .reserved = 0x00,
         .MPTR = 0x00,
@@ -476,7 +475,6 @@ bool Driver::IO::NVMe::initialiseIdentity()
         .CDW15 = 0x00
     };
 
-    identifyEntry.commandID = ++adminCommandID;
     Driver::IO::NVMe::submitAdminCommand(&identifyEntry);
     if (!Driver::IO::NVMe::pollAdminCommandCompletion())
     {
@@ -556,12 +554,106 @@ bool Driver::IO::NVMe::initialiseIOQueue()
 }
 
 // Now the actual API ~everyone~ will use
+// Make sure the page you give is physical and zeroed out!!!
 bool Driver::IO::NVMe::API::readSectors(uint64_t sectorStart, uint64_t sectorCount, uint64_t bufferPhysical)
 {
+    SubmissionQueueEntry sqEntry =
+    {
+        .opcode    = 0x02, // Read
+        .flags     = 0x00,
+        .commandID = ++IOCommandID,
+        .NSID      = 0x01,
+        .reserved  = 0x00,
+        .MPTR      = 0x00,
+        .PRP1      = bufferPhysical,
+        .PRP2      = 0x00,
+        .CDW10     = (uint32_t)(sectorStart & 0xFFFFFFFF),
+        .CDW11     = (uint32_t)(sectorStart >> 32),
+        .CDW12     = (uint32_t)(sectorCount - 1),
+        .CDW13     = 0x00,
+        .CDW14     = 0x00,
+        .CDW15     = 0x00
+    };
+
+    Driver::IO::NVMe::submitIOCommand(&sqEntry);
+    if (!pollIOCommandCompletion()) return false;
     return true;
 }
 
+// BUG, sometimes the NSZE is 0 (totalSectors) causing init to fail
+// BUG, sometimes readSector hangs
+// There may be other b_u_g_s which i havent found
+// i wrote b_u_g_s like that so searching the codebase for that string will only bring out genuine issues
+// and not generic strings which contain the string being searched for
+
+// Make sure the page you give is physical and zeroed out!!!
 bool Driver::IO::NVMe::API::writeSectors(uint64_t sectorStart, uint64_t sectorCount, uint64_t bufferPhysical)
 {
+    SubmissionQueueEntry sqEntry =
+    {
+        .opcode    = 0x01,// Write
+        .flags     = 0x00,
+        .commandID = ++IOCommandID,
+        .NSID      = 0x01,
+        .reserved  = 0x00,
+        .MPTR      = 0x00,
+        .PRP1      = bufferPhysical,
+        .PRP2      = 0x00,
+        .CDW10     = (uint32_t)(sectorStart & 0xFFFFFFFF),
+        .CDW11     = (uint32_t)(sectorStart >> 32),
+        .CDW12     = (uint32_t)(sectorCount - 1),
+        .CDW13     = 0x00,
+        .CDW14     = 0x00,
+        .CDW15     = 0x00
+    };
+
+    Driver::IO::NVMe::submitIOCommand(&sqEntry);
+    if (!pollIOCommandCompletion()) return false;
     return true;
+}
+
+bool Driver::IO::NVMe::Test::testRound()
+{
+    uint64_t commonBuffer = pmm_G->allocFrame();
+    if (!commonBuffer) 
+    {
+        ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
+        ::TTY::putString("Could not allocate a free frame! OOM?\n", TTY::Color::WHITE);
+    }
+    uint64_t virtualBuffer = vmm_G->physicalToVirtual(commonBuffer);
+    vmm_G->mapPage(virtualBuffer, commonBuffer, PAGE_NX | PAGE_PRESENT | PAGE_WRITABLE);
+
+    Libc::Memory::kmemset((void*)virtualBuffer, 0, 4096);
+
+    uint8_t* vbuf = reinterpret_cast<uint8_t*>(virtualBuffer);
+
+    vbuf[0] = 'h';
+    vbuf[1] = 'e';
+    vbuf[2] = 'l';
+    vbuf[3] = 'l';
+    vbuf[4] = 'o';
+
+    // ::TTY::putString("[TEST] Before write\n", TTY::Color::WHITE);
+    if(!Driver::IO::NVMe::API::writeSectors(1, 1, commonBuffer))
+    {
+        ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
+        ::TTY::putString("Unknown error while writing sectors to disk!\n", TTY::Color::WHITE);
+    }
+    // ::TTY::putString("[TEST] After write\n", TTY::Color::WHITE);
+
+    Libc::Memory::kmemset((void*)virtualBuffer, 0, 4096);
+
+    if (!Driver::IO::NVMe::API::readSectors(1, 1, commonBuffer))
+    {
+        ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
+        ::TTY::putString("Error while reading sectors from disk!\n", TTY::Color::WHITE);
+    }
+
+    if (vbuf[0] == 'h' && vbuf[1] == 'e' && vbuf[2] == 'l' && vbuf[3] == 'l' && vbuf[4] == 'o')
+    {
+        ::TTY::putString("[PASS] ", ::TTY::Color::LIME);
+        ::TTY::putString("Disk round test passed!\n", TTY::Color::WHITE);
+        return true;
+    }
+    return false;
 }

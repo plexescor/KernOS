@@ -215,6 +215,8 @@ extern "C" void kernelMain()
     TTY::putString(" Kilobytes\n", TTY::Color::YELLOW);
 
     if(!Driver::IO::NVMe::initialise()) halt();
+    // Do a test now
+    if (!Driver::IO::NVMe::Test::testRound()) halt();
     // Finished
     TTY::putString("[ OK ] ", TTY::Color::LIME);
     TTY::putString("All initialization stages completed.\n", TTY::Color::WHITE);
