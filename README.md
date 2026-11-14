@@ -31,7 +31,7 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 - NVMe driver
 
 **In progress:**
-- Filesystem, VFS (Just starting)
+- Filesystem, VFS (KoreFS)
 
 **Not started yet:**
 - Userspace, ELF loader, syscalls
@@ -58,15 +58,16 @@ The build system is still changing frequently. Proper build instructions will be
 
 The roadmap roughly in order:
 
-- ACPI parsing and PCI enumeration
-- NVMe driver and ext2 filesystem
+- NVMe driver and KoreFS (custom) filesystem
 - Userspace, ELF loader, syscalls, scheduler
-- libc and shell
+- Libc and shell
+- Port GCC
+- Ethernet driver
 - WiFi driver for RTL8852BE
 - GPU driver for Radeon 860M (RDNA 3.5) with Vulkan implementation
 - Compositor and desktop environment with GPU acceleration
 - Linux binary compatibility layer called Bridge
-- Native ports of GCC, Chromium, OpenJDK, Discord
+- Native ports of Chromium, OpenJDK, Discord
 
 The first public release will target machines with Radeon 860M or 840M (RDNA 3.5) and RTL8852BE or RTL8822CE WiFi. Intel Iris Xe support is planned for a later release.
 
