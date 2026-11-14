@@ -7,6 +7,7 @@
 #include "CPU/ACPI.hpp"
 #include "Memory/PhysicalMemoryManager.hpp"
 #include "Memory/VirtualMemoryManager.hpp"
+#include "Filesystem/KoreFS.hpp"
 #include "IO/PortIO.hpp"
 #include "limine.h"
 
@@ -214,9 +215,16 @@ extern "C" void kernelMain()
     TTY::putString(uint64ToString((KERNEL_HEAP_INITIAL/(1024)), buffer2, 21), TTY::Color::YELLOW);
     TTY::putString(" Kilobytes\n", TTY::Color::YELLOW);
 
-    if(!Driver::IO::NVMe::initialise()) halt();
+    if (!Driver::IO::NVMe::initialise()) halt();
     // Do a test now
-    if (!Driver::IO::NVMe::Test::testRound()) halt();
+    // if (!Driver::IO::NVMe::API::zeroOutSectors(0, 1)) halt();
+    // TTY::putString("[ OK ] ", TTY::Color::LIME);
+    // TTY::putString("Zeroes out the first LBA of the NVMe.\n", TTY::Color::WHITE);
+
+    if (!Filesystem::KoreFS::initialise()) halt();
+    TTY::putString("[ OK ] ", TTY::Color::LIME);
+    TTY::putString("Filesystem KoreFS intialised...\n", TTY::Color::WHITE);
+
     // Finished
     TTY::putString("[ OK ] ", TTY::Color::LIME);
     TTY::putString("All initialization stages completed.\n", TTY::Color::WHITE);

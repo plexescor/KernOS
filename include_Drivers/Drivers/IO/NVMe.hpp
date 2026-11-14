@@ -126,8 +126,12 @@ namespace Driver::IO::NVMe
 
     namespace API
     {
+        uint64_t getTotalSectors();
+        uint64_t getSectorSize();
+        uint64_t getUsableSectors();
         bool readSectors(uint64_t sectorStart, uint64_t sectorCount, uint64_t bufferPhysical);
         bool writeSectors(uint64_t sectorStart, uint64_t sectorCount, uint64_t bufferPhysical);
+        bool zeroOutSectors(uint64_t sectorStart, uint64_t sectorCount);
     }
     namespace Test
     {

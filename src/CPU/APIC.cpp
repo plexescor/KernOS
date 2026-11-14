@@ -157,27 +157,27 @@ void CPU::APIC::IOAPICSetupKeyboard(uint8_t IDTVector, uint8_t LAPICID)
     if (keyboardFlags & 0x8) lowBits |= (1 << 15);  // trigger mode
     uint32_t highBits = ((uint32_t)LAPICID) << 24;
 
-    // Debug prints
-    char buf1[21], buf2[21];
-    char buf3[21], buf4[21];
+    // // Debug prints
+    // char buf1[21], buf2[21];
+    // char buf3[21], buf4[21];
 
-    TTY::putString("[DBG] keyboardGSI: ", TTY::Color::CYAN);
-    TTY::putString(uint64ToString(keyboardGSI, buf1, 21), TTY::Color::YELLOW);
-    TTY::putString("\n", TTY::Color::WHITE);
+    // TTY::putString("[DBG] keyboardGSI: ", TTY::Color::CYAN);
+    // TTY::putString(uint64ToString(keyboardGSI, buf1, 21), TTY::Color::YELLOW);
+    // TTY::putString("\n", TTY::Color::WHITE);
 
-    TTY::putString("[DBG] keyboardFlags: ", TTY::Color::CYAN);
-    TTY::putString(uint64ToString(keyboardFlags, buf2, 21), TTY::Color::YELLOW);
-    TTY::putString("\n", TTY::Color::WHITE);
+    // TTY::putString("[DBG] keyboardFlags: ", TTY::Color::CYAN);
+    // TTY::putString(uint64ToString(keyboardFlags, buf2, 21), TTY::Color::YELLOW);
+    // TTY::putString("\n", TTY::Color::WHITE);
 
-    TTY::putString("[DBG] lowBits: ", TTY::Color::CYAN);
-    uint64ToHex(lowBits, buf3);
-    TTY::putString(buf3, TTY::Color::YELLOW);
-    TTY::putString("\n", TTY::Color::WHITE);
+    // TTY::putString("[DBG] lowBits: ", TTY::Color::CYAN);
+    // uint64ToHex(lowBits, buf3);
+    // TTY::putString(buf3, TTY::Color::YELLOW);
+    // TTY::putString("\n", TTY::Color::WHITE);
 
-    TTY::putString("[DBG] highBits: ", TTY::Color::CYAN);
-    uint64ToHex(highBits, buf4);
-    TTY::putString(buf4, TTY::Color::YELLOW);
-    TTY::putString("\n", TTY::Color::WHITE);
+    // TTY::putString("[DBG] highBits: ", TTY::Color::CYAN);
+    // uint64ToHex(highBits, buf4);
+    // TTY::putString(buf4, TTY::Color::YELLOW);
+    // TTY::putString("\n", TTY::Color::WHITE);
 
     writeIOAPIC(IOAPICREDTBL(keyboardGSI), lowBits);
     writeIOAPIC(IOAPICREDTBL(keyboardGSI) + 1, highBits);

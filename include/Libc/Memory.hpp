@@ -28,6 +28,7 @@ namespace Libc
         bool kgrowHeap(uint64_t size, Libc::Memory::BlockHeader* lastBlock);
         bool kmallocInit(uint64_t heapStart, uint64_t heapSize);
         void* kmalloc(uint64_t size);
+        void kmemcpy(void* destination,const void* source, size_t size);
         void kfree(void* address);
     }
 }

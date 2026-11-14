@@ -1,0 +1,3 @@
+# KoreFS
+
+This document explains what is KoreFS and how does it work....

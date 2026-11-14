@@ -552,6 +552,22 @@ bool Driver::IO::NVMe::initialiseIOQueue()
 }
 
 // Now the actual API ~everyone~ will use
+
+uint64_t Driver::IO::NVMe::API::getTotalSectors()
+{
+    return totalSectors;
+}
+
+uint64_t Driver::IO::NVMe::API::getSectorSize()
+{
+    return sectorSize;
+}
+
+uint64_t Driver::IO::NVMe::API::getUsableSectors()
+{
+    return usableSectors;
+}
+
 // Make sure the page you give is physical and zeroed out!!!
 bool Driver::IO::NVMe::API::readSectors(uint64_t sectorStart, uint64_t sectorCount, uint64_t bufferPhysical)
 {
@@ -612,6 +628,31 @@ bool Driver::IO::NVMe::API::writeSectors(uint64_t sectorStart, uint64_t sectorCo
     return true;
 }
 
+bool Driver::IO::NVMe::API::zeroOutSectors(uint64_t sectorStart, uint64_t sectorCount)
+{
+    uint64_t zeroBuffer = pmm_G->allocFrame();
+    if (!zeroBuffer) 
+    {
+        ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
+        ::TTY::putString("Could not allocate a free frame! OOM?\n", TTY::Color::WHITE);
+        return false;
+    }
+    uint64_t zeroBufferVirtual = vmm_G->physicalToVirtual(zeroBuffer);
+    vmm_G->mapPage(zeroBufferVirtual, zeroBuffer, PAGE_NX | PAGE_PRESENT | PAGE_WRITABLE);
+
+    Libc::Memory::kmemset((void*)zeroBufferVirtual, 0, 4096);
+    if (!Driver::IO::NVMe::API::writeSectors(sectorStart, sectorCount, zeroBuffer))
+    {
+        ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
+        ::TTY::putString("Unknown error while writing sectors to disk!\n", TTY::Color::WHITE);
+        return false;
+    }
+
+    pmm_G->freeFrame_PMM(zeroBuffer);
+    vmm_G->unMapPage(zeroBufferVirtual);
+    return true;
+}
+
 bool Driver::IO::NVMe::Test::testRound()
 {
     uint64_t commonBuffer = pmm_G->allocFrame();
@@ -667,6 +708,11 @@ bool Driver::IO::NVMe::Test::testRound()
     {
         ::TTY::putString("[PASS] ", ::TTY::Color::LIME);
         ::TTY::putString("Disk round test passed!\n", TTY::Color::WHITE);
+
+        pmm_G->freeFrame_PMM(commonBuffer);
+        pmm_G->freeFrame_PMM(commonBuffer2);
+        vmm_G->unMapPage(virtualBuffer);
+        vmm_G->unMapPage(virtualBuffer2);
         return true;
     }
     return false;

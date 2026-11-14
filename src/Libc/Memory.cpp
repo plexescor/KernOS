@@ -172,3 +172,14 @@ void Libc::Memory::kfree(void* address)
             currentBlock->next->previous = previousBlock;
     }
 }
+
+void Libc::Memory::kmemcpy(void* destination,const void* source, size_t size)
+{
+    uint8_t* destinationByte = reinterpret_cast<uint8_t*>(destination);
+    const uint8_t* sourceByte = reinterpret_cast<const uint8_t*>(source);
+
+    for (size_t i = 0; i < size; i++)
+    {
+        destinationByte[i] = sourceByte[i];
+    }
+}

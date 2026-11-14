@@ -36,6 +36,7 @@ SRCS_CXX := src/Kernel/Kernel.cpp \
 			 src/Memory/PhysicalMemoryManager.cpp \
 			 src/Memory/VirtualMemoryManager.cpp \
 			 src/Libc/Memory.cpp \
+			 src/Filesystem/KoreFS.cpp \
 			 drivers/IO/NVMe.cpp
 SRCS_ASM := src/Boot/Boot.asm \
 			 src/GDT/GDT.asm \
@@ -58,6 +59,7 @@ OBJS := build/Kernel/Kernel.o \
 		build/Memory/PhysicalMemoryManager.o \
 		build/Memory/VirtualMemoryManager.o \
 		build/Libc/Memory.o \
+		build/Filesystem/KoreFS.o \
 		Fonts/Font.o \
 		build/drivers/IO/NVMe.o
 
