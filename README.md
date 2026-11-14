@@ -28,12 +28,12 @@ Early kernel development. Currently boots via Limine on UEFI, runs in QEMU, and 
 - Kernel heap
 - ACPI parsing (MADT, MCFG)
 - PCI enumeration via ECAM
+- NVMe driver
 
 **In progress:**
-- NVMe driver (Basic version works, need to squash some bugs)
+- Filesystem, VFS (Just starting)
 
 **Not started yet:**
-- Filesystem (ext2)
 - Userspace, ELF loader, syscalls
 - Libc
 - Scheduler

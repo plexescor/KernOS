@@ -151,16 +151,16 @@ bool Driver::IO::NVMe::initialiseNamespaceData()
         ::TTY::putString("NSZE is 0 invalid namespace!\n", TTY::Color::WHITE);
         return false;
     }
-    ::TTY::putString("[INFO] ", TTY::Color::CYAN);
-    ::TTY::putString("Total Sectors (NSZE): ", TTY::Color::WHITE);
-    ::TTY::putString(uint64ToString(totalSectors, bufTotalSectors, 21), TTY::Color::YELLOW);
-    ::TTY::putString("\n", TTY::Color::WHITE);
+    // ::TTY::putString("[INFO] ", TTY::Color::CYAN);
+    // ::TTY::putString("Total Sectors (NSZE): ", TTY::Color::WHITE);
+    // ::TTY::putString(uint64ToString(totalSectors, bufTotalSectors, 21), TTY::Color::YELLOW);
+    // ::TTY::putString("\n", TTY::Color::WHITE);
 
     activeIndex = data->FLBAS & 0x0F;
-    ::TTY::putString("[INFO] ", TTY::Color::CYAN);
-    ::TTY::putString("Active LBA Format Index (FLBAS): ", TTY::Color::WHITE);
-    ::TTY::putString(uint64ToString(activeIndex, bufActiveIndex, 21), TTY::Color::YELLOW);
-    ::TTY::putString("\n", TTY::Color::WHITE);
+    // ::TTY::putString("[INFO] ", TTY::Color::CYAN);
+    // ::TTY::putString("Active LBA Format Index (FLBAS): ", TTY::Color::WHITE);
+    // ::TTY::putString(uint64ToString(activeIndex, bufActiveIndex, 21), TTY::Color::YELLOW);
+    // ::TTY::putString("\n", TTY::Color::WHITE);
 
     uint8_t lbads = data->LBAF[activeIndex].LBADS;
     if (lbads < 9 || lbads > 12)
@@ -170,10 +170,10 @@ bool Driver::IO::NVMe::initialiseNamespaceData()
         return false;
     }
     sectorSize = 1ULL << lbads;
-    ::TTY::putString("[INFO] ", TTY::Color::CYAN);
-    ::TTY::putString("Sector Size (bytes): ", TTY::Color::WHITE);
-    ::TTY::putString(uint64ToString(sectorSize, bufSectorSize, 21), TTY::Color::YELLOW);
-    ::TTY::putString("\n", TTY::Color::WHITE);
+    // ::TTY::putString("[INFO] ", TTY::Color::CYAN);
+    // ::TTY::putString("Sector Size (bytes): ", TTY::Color::WHITE);
+    // ::TTY::putString(uint64ToString(sectorSize, bufSectorSize, 21), TTY::Color::YELLOW);
+    // ::TTY::putString("\n", TTY::Color::WHITE);
 
     metadataSize = data->LBAF[activeIndex].MS;
     if (metadataSize != 0)
@@ -182,19 +182,19 @@ bool Driver::IO::NVMe::initialiseNamespaceData()
         ::TTY::putString("Metadata sectors not supported!\n", TTY::Color::WHITE);
         return false;
     }
-    ::TTY::putString("[INFO] ", TTY::Color::CYAN);
-    ::TTY::putString("Metadata Size (should be 0): ", TTY::Color::WHITE);
-    ::TTY::putString(uint64ToString(metadataSize, bufMetadataSize, 21), TTY::Color::YELLOW);
-    ::TTY::putString("\n", TTY::Color::WHITE);
+    // ::TTY::putString("[INFO] ", TTY::Color::CYAN);
+    // ::TTY::putString("Metadata Size (should be 0): ", TTY::Color::WHITE);
+    // ::TTY::putString(uint64ToString(metadataSize, bufMetadataSize, 21), TTY::Color::YELLOW);
+    // ::TTY::putString("\n", TTY::Color::WHITE);
 
     usableSectors = data->NCAP;
     totalBytes = totalSectors * sectorSize;
     totalUsableBytes = usableSectors * sectorSize;
 
-    ::TTY::putString("[INFO] ", TTY::Color::CYAN);
-    ::TTY::putString("Usable Sectors (NCAP): ", TTY::Color::WHITE);
-    ::TTY::putString(uint64ToString(usableSectors, bufUsableSectors, 21), TTY::Color::YELLOW);
-    ::TTY::putString("\n", TTY::Color::WHITE);
+    // ::TTY::putString("[INFO] ", TTY::Color::CYAN);
+    // ::TTY::putString("Usable Sectors (NCAP): ", TTY::Color::WHITE);
+    // ::TTY::putString(uint64ToString(usableSectors, bufUsableSectors, 21), TTY::Color::YELLOW);
+    // ::TTY::putString("\n", TTY::Color::WHITE);
 
     ::TTY::putString("[INFO] ", TTY::Color::CYAN);
     ::TTY::putString("Total Bytes: ", TTY::Color::WHITE);
@@ -634,7 +634,7 @@ bool Driver::IO::NVMe::Test::testRound()
     vbuf[4] = 'o';
 
     // ::TTY::putString("[TEST] Before write\n", TTY::Color::WHITE);
-    if(!Driver::IO::NVMe::API::writeSectors(1, 1, commonBuffer))
+    if(!Driver::IO::NVMe::API::writeSectors(0, 1, commonBuffer))
     {
         ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
         ::TTY::putString("Unknown error while writing sectors to disk!\n", TTY::Color::WHITE);
@@ -657,7 +657,7 @@ bool Driver::IO::NVMe::Test::testRound()
     uint8_t* vbuf2 = reinterpret_cast<uint8_t*>(virtualBuffer2);
 
 
-    if (!Driver::IO::NVMe::API::readSectors(1, 1, commonBuffer2))
+    if (!Driver::IO::NVMe::API::readSectors(0, 1, commonBuffer2))
     {
         ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
         ::TTY::putString("Error while reading sectors from disk!\n", TTY::Color::WHITE);
