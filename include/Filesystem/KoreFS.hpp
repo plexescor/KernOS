@@ -7,6 +7,7 @@ namespace Filesystem
 {
     namespace KoreFS
     {
+        #define MAX_CHUNKS 128 // Hardcoded for now
         struct __attribute__((packed)) FreeRegion
         {
             uint64_t startSector;
@@ -30,6 +31,22 @@ namespace Filesystem
             uint64_t rootFolderHeaderSector;
             uint64_t freeRegionCount;
         };
+
+        // BEWARE not written as is to disk, explained on KoreFS.md
+        struct __attribute__((packed)) FileMetadataHeader
+        {
+            char magic[8];
+            char name[128];
+            uint64_t sizeBytes;
+            uint64_t sectorSpan; //rounded
+            uint8_t type; // 0 = file, 1 = folder
+            uint64_t flags;
+            uint64_t chunkCount;
+            uint64_t chunkSectorStart[MAX_CHUNKS];
+            uint64_t chunkSectorSpan[MAX_CHUNKS];
+            uint64_t dataOffset;
+        };
+
         // constexpr char MAGIC_BYTE[8] = {'K', 'O', 'R', 'E', 'F', 'S', ' ', ' '};
         bool writeFreeRegion(FreeRegion* freeRegion, uint64_t driveHeaderStart);
         bool driveHeaderExists();
