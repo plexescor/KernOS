@@ -10,7 +10,7 @@ namespace Filesystem
         struct __attribute__((packed)) FreeRegion
         {
             uint64_t startSector;
-            uint64_t sectorCount;
+            uint64_t sectorSpan;
         };
         // This is a Block header that resides in LBA 2048 (512 or 4096 Bytes sector size, plenty in both cases)
         // It has a magic byte ("KOREFS ") to identify itself

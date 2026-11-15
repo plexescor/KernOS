@@ -102,7 +102,7 @@ bool Filesystem::KoreFS::writeDriveHeader()
     FreeRegion freeRegion = 
     { 
         .startSector = freeRegionStart, 
-        .sectorCount = freeRegionSectorCount 
+        .sectorSpan = freeRegionSectorCount 
     };
 
     DriveHeader header = 
@@ -173,7 +173,7 @@ bool Filesystem::KoreFS::writeFreeRegion(FreeRegion *freeRegion, uint64_t driveH
         for (uint64_t i = 0; i < entriesPerSector; i++)
         {
             // When we allocate something and erase from freeRegion, we need to clear both to 0
-            if (regions[i].sectorCount == 0 && regions[i].sectorCount == 0) // We found empty slot
+            if (regions[i].sectorSpan == 0 && regions[i].sectorSpan == 0) // We found empty slot
             {
                 regions[i] = *freeRegion;
 
