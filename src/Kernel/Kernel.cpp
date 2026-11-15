@@ -123,7 +123,7 @@ extern "C" void kernelMain()
     TTY::putString(buffer, TTY::Color::PURPLE);
     TTY::putString("\n", TTY::Color::WHITE);
 
-    pmm.freeFrame_PMM(memory);
+    pmm.freeFrame(memory);
 
     TTY::putString("[ OK ] ", TTY::Color::LIME);
     TTY::putString("Physical frame freed.\n", TTY::Color::WHITE);

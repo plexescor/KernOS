@@ -648,7 +648,7 @@ bool Driver::IO::NVMe::API::zeroOutSectors(uint64_t sectorStart, uint64_t sector
         return false;
     }
 
-    pmm_G->freeFrame_PMM(zeroBuffer);
+    pmm_G->freeFrame(zeroBuffer);
     vmm_G->unMapPage(zeroBufferVirtual);
     return true;
 }
@@ -709,8 +709,8 @@ bool Driver::IO::NVMe::Test::testRound()
         ::TTY::putString("[PASS] ", ::TTY::Color::LIME);
         ::TTY::putString("Disk round test passed!\n", TTY::Color::WHITE);
 
-        pmm_G->freeFrame_PMM(commonBuffer);
-        pmm_G->freeFrame_PMM(commonBuffer2);
+        pmm_G->freeFrame(commonBuffer);
+        pmm_G->freeFrame(commonBuffer2);
         vmm_G->unMapPage(virtualBuffer);
         vmm_G->unMapPage(virtualBuffer2);
         return true;

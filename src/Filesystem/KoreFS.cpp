@@ -10,7 +10,10 @@
 
 // TODO maybe keep sectorSize in mind to write data, its 512 on qemu so i guess we will do it later
 
-// BEWARE all space usage, free space have the unit number of sectors not bytes;
+// BEWARE all space usage, free space have the unit 'bytes';
+
+// FUTURE may need to update the starting LBA of our header to be compliant with the one 
+// told by the GPT header
 
 extern PhysicalMemoryManager* pmm_G;
 extern VirtualMemoryManager* vmm_G;
@@ -84,24 +87,17 @@ bool Filesystem::KoreFS::writeDriveHeader()
 
     uint64_t totalSectors = Driver::IO::NVMe::API::getTotalSectors();
     uint64_t sectorSize = Driver::IO::NVMe::API::getSectorSize();
-    uint64_t usableSectors = Driver::IO::NVMe::API::getUsableSectors();
-
-    if (totalSectors != usableSectors)
-    {
-        ::TTY::putString("[FAIL] ", TTY::Color::RED);
-        ::TTY::putString("Total sectors and usable sectors dont match!\n", TTY::Color::WHITE);
-        return false;
-    }
 
     DriveHeader header = 
     {
         // FUTURE may need to bump shit to accomodate for an EFI partition as boootloaders are heavy....
+        // FUTURE may need to keep in account usableSectors as some maybe reserved for the gpt header i guess..
         .magic = {'K', 'O', 'R', 'E', 'F', 'S', ' ', ' '},
         .sectorSize = sectorSize,
-        .driveSize = totalSectors,
-        .usedSpace = 1 * 2, // We can assume that when we write this header, (during formatting), (only LBA0 and LBA will be used)
-                            // By the Bootloader or whatever (Bootloader will need more space i guess) and the header itself
-        .freespace = totalSectors - 1 * 2 // same deal, accounting for the header of bootloader
+        .driveSize = totalSectors * sectorSize,
+        .usedSpace = sectorSize, // We can assume that when we write this header, (during formatting), (LBA 2048 will be used)
+                            // By the header itself
+        .freespace = (totalSectors - 1) * sectorSize // same deal
         // I can be wrong tho we will see
     };
 
@@ -118,8 +114,10 @@ bool Filesystem::KoreFS::writeDriveHeader()
 
     Libc::Memory::kmemcpy((void*)bufferVirtual, (void*)&header, sizeof(header));
 
-    Driver::IO::NVMe::API::writeSectors(1, 1, buffer);
+    Driver::IO::NVMe::API::writeSectors(2048, 1, buffer);
     
+    pmm_G->freeFrame(buffer);
+    vmm_G->unMapPage(bufferVirtual);
     return true;
 }
 
@@ -137,7 +135,7 @@ std::optional<Filesystem::KoreFS::DriveHeader> Filesystem::KoreFS::readDrivehead
     Libc::Memory::kmemset((void*)bufferVirtual, 0, 4096);
 
     // Now read the sectors from the drive
-    if (!Driver::IO::NVMe::API::readSectors(1, 1, buffer))
+    if (!Driver::IO::NVMe::API::readSectors(2048, 1, buffer))
     {
         ::TTY::putString("[FAIL] ", TTY::Color::RED);
         ::TTY::putString("Unknown error while reading sectors from disk!\n", TTY::Color::WHITE);
@@ -147,5 +145,7 @@ std::optional<Filesystem::KoreFS::DriveHeader> Filesystem::KoreFS::readDrivehead
 
     Libc::Memory::kmemcpy((void*)&header, (void*)bufferVirtual, sizeof(header));
 
+    pmm_G->freeFrame(buffer);
+    vmm_G->unMapPage(bufferVirtual);
     return header;
 }

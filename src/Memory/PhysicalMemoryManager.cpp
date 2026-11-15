@@ -158,7 +158,7 @@ uint64_t PhysicalMemoryManager::allocFrame()
 }
 
 // Frees a page given its physical address
-void PhysicalMemoryManager::freeFrame_PMM(uint64_t address)
+void PhysicalMemoryManager::freeFrame(uint64_t address)
 {
     if (HHDMRequest.response == NULL)
     {

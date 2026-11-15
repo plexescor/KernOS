@@ -7,12 +7,12 @@ namespace Filesystem
 {
     namespace KoreFS
     {
-        // This is a Block header that resides in LBA 1 (512 or 4096 Bytes sector size, plenty in both cases)
+        // This is a Block header that resides in LBA 2048 (512 or 4096 Bytes sector size, plenty in both cases)
         // It has a magic byte ("KOREFS ") to identify itself
         // It stores the size of each sector
-        // It stores the total size of the drive (or partition? but entire drive for now) in sectors
-        // It stores the used space in number of sectors
-        // It stores the free space in number of sectors
+        // It stores the total size of the drive (or partition? but entire drive for now) in bytes, does not account for usableSectors
+        // It stores the used space in number of bytes
+        // It stores the free space in number of bytes
         struct __attribute__((packed)) DriveHeader
         {
             char magic[8];
