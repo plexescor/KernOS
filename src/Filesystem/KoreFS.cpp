@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <optional>
 
+
+uint64_t RESERVED_FREE_REGION_SECTORS = 0;
 // TODO maybe keep sectorSize in mind to write data, its 512 on qemu so i guess we will do it later
 
 // BEWARE all space usage, free space have the unit 'bytes';
@@ -54,7 +56,7 @@ bool Filesystem::KoreFS::driveHeaderExists()
     ::TTY::putString("\n", ::TTY::Color::WHITE);
 
     ::TTY::putString("[KOREFS] FreeSpace:  ", ::TTY::Color::WHITE);
-    ::TTY::putString(uint64ToString(header->freespace, numBuf, sizeof(numBuf)), ::TTY::Color::WHITE);
+    ::TTY::putString(uint64ToString(header->freeSpace, numBuf, sizeof(numBuf)), ::TTY::Color::WHITE);
     ::TTY::putString("\n", ::TTY::Color::WHITE);
 
     // Verify magic matches "KOREFS  " before confirming the header exists
@@ -88,6 +90,21 @@ bool Filesystem::KoreFS::writeDriveHeader()
     uint64_t totalSectors = Driver::IO::NVMe::API::getTotalSectors();
     uint64_t sectorSize = Driver::IO::NVMe::API::getSectorSize();
 
+    // Reserve some sectors for our freeRegion tracking
+    // 1GB is plenty.. (67 million btw)
+    uint64_t reservedRegionsNumber = (1 * 1024 * 1024 * 1024) / sectorSize;
+    RESERVED_FREE_REGION_SECTORS = reservedRegionsNumber;
+    uint64_t rootFolderHeaderStart = 2049 + reservedRegionsNumber;
+
+    uint64_t freeRegionStart = rootFolderHeaderStart + 1;
+    uint64_t freeRegionSectorCount = totalSectors - freeRegionStart;
+
+    FreeRegion freeRegion = 
+    { 
+        .startSector = freeRegionStart, 
+        .sectorCount = freeRegionSectorCount 
+    };
+
     DriveHeader header = 
     {
         // FUTURE may need to bump shit to accomodate for an EFI partition as boootloaders are heavy....
@@ -95,10 +112,11 @@ bool Filesystem::KoreFS::writeDriveHeader()
         .magic = {'K', 'O', 'R', 'E', 'F', 'S', ' ', ' '},
         .sectorSize = sectorSize,
         .driveSize = totalSectors * sectorSize,
-        .usedSpace = sectorSize, // We can assume that when we write this header, (during formatting), (LBA 2048 will be used)
-                            // By the header itself
-        .freespace = (totalSectors - 1) * sectorSize // same deal
-        // I can be wrong tho we will see
+        .usedSpace = freeRegionStart * sectorSize,
+        .freeSpace = freeRegionSectorCount * sectorSize, 
+        .rootFolderHeaderSector = rootFolderHeaderStart,
+        .freeRegionCount = 1
+        // Free region starts just after this struct
     };
 
     uint64_t buffer = pmm_G->allocFrame();
@@ -116,6 +134,65 @@ bool Filesystem::KoreFS::writeDriveHeader()
 
     Driver::IO::NVMe::API::writeSectors(2048, 1, buffer);
     
+    Filesystem::KoreFS::writeFreeRegion(&freeRegion, 2048);
+    pmm_G->freeFrame(buffer);
+    vmm_G->unMapPage(bufferVirtual);
+    return true;
+}
+
+bool Filesystem::KoreFS::writeFreeRegion(FreeRegion *freeRegion, uint64_t driveHeaderStart)
+{
+    bool foundEmptySpace = false;
+    uint64_t offset = driveHeaderStart + 1;
+    uint64_t sectorSize = Driver::IO::NVMe::API::getSectorSize();
+    uint64_t entriesPerSector = sectorSize / sizeof(FreeRegion);
+
+    uint64_t buffer = pmm_G->allocFrame();
+    if (!buffer)
+    {
+        ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
+        ::TTY::putString("Could not allocate a free frame! OOM?\n", TTY::Color::WHITE);
+        return false;
+    }
+    uint64_t bufferVirtual = vmm_G->physicalToVirtual(buffer);
+    vmm_G->mapPage(bufferVirtual, buffer, PAGE_NX | PAGE_PRESENT | PAGE_WRITABLE);
+
+    for (uint64_t currentSector = 0; currentSector < RESERVED_FREE_REGION_SECTORS; currentSector++)
+    {
+        Libc::Memory::kmemset((void*)bufferVirtual, 0, 4096);
+        if (!Driver::IO::NVMe::API::readSectors(offset + currentSector, 1, buffer))
+        {
+            ::TTY::putString("[FAIL] ", TTY::Color::RED);
+            ::TTY::putString("Unknown error while reading sectors from disk!\n", TTY::Color::WHITE);
+            pmm_G->freeFrame(buffer);
+            vmm_G->unMapPage(bufferVirtual);
+            return false;
+        }
+
+        FreeRegion* regions = reinterpret_cast<FreeRegion*>(bufferVirtual);
+        for (uint64_t i = 0; i < entriesPerSector; i++)
+        {
+            // When we allocate something and erase from freeRegion, we need to clear both to 0
+            if (regions[i].sectorCount == 0 && regions[i].sectorCount == 0) // We found empty slot
+            {
+                regions[i] = *freeRegion;
+
+                if (!Driver::IO::NVMe::API::writeSectors(offset + currentSector, 1, buffer))
+                {
+                    ::TTY::putString("[FAIL] ", TTY::Color::RED);
+                    ::TTY::putString("Unknown error while writing sectors to disk!\n", TTY::Color::WHITE);
+                    pmm_G->freeFrame(buffer);
+                    vmm_G->unMapPage(bufferVirtual);
+                    return false;
+                }
+                pmm_G->freeFrame(buffer);
+                vmm_G->unMapPage(bufferVirtual);
+                return true;
+            }
+        }
+    }
+
+    ::TTY::putString("[FAIL] FreeRegion table full!\n", TTY::Color::RED);
     pmm_G->freeFrame(buffer);
     vmm_G->unMapPage(bufferVirtual);
     return true;
@@ -123,7 +200,11 @@ bool Filesystem::KoreFS::writeDriveHeader()
 
 std::optional<Filesystem::KoreFS::DriveHeader> Filesystem::KoreFS::readDriveheader()
 {
+    uint64_t sectorSize = Driver::IO::NVMe::API::getSectorSize();
+    RESERVED_FREE_REGION_SECTORS = (1ULL * 1024 * 1024 * 1024) / sectorSize;
+    
     uint64_t buffer = pmm_G->allocFrame();
+    
     if (!buffer)
     {
         ::TTY::putString("[FAIL] ", ::TTY::Color::RED);
@@ -139,6 +220,9 @@ std::optional<Filesystem::KoreFS::DriveHeader> Filesystem::KoreFS::readDrivehead
     {
         ::TTY::putString("[FAIL] ", TTY::Color::RED);
         ::TTY::putString("Unknown error while reading sectors from disk!\n", TTY::Color::WHITE);
+        pmm_G->freeFrame(buffer);
+        vmm_G->unMapPage(bufferVirtual);
+        return std::nullopt;
     }
 
     Filesystem::KoreFS::DriveHeader header = {};
