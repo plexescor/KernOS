@@ -8,8 +8,6 @@
 #include <cstdint>
 #include <optional>
 
-
-uint64_t RESERVED_FREE_REGION_SECTORS = 0;
 // TODO maybe keep sectorSize in mind to write data, its 512 on qemu so i guess we will do it later
 
 // BEWARE all space usage, free space have the unit 'bytes';
@@ -59,6 +57,26 @@ bool Filesystem::KoreFS::driveHeaderExists()
     ::TTY::putString(uint64ToString(header->freeSpace, numBuf, sizeof(numBuf)), ::TTY::Color::WHITE);
     ::TTY::putString("\n", ::TTY::Color::WHITE);
 
+    ::TTY::putString("[KOREFS] RootFolderHeaderSector: ", ::TTY::Color::WHITE);
+    ::TTY::putString(uint64ToString(header->rootFolderHeaderSector, numBuf, sizeof(numBuf)), ::TTY::Color::WHITE);
+    ::TTY::putString("\n", ::TTY::Color::WHITE);
+
+    ::TTY::putString("[KOREFS] FreeRegionCount:        ", ::TTY::Color::WHITE);
+    ::TTY::putString(uint64ToString(header->freeRegionCount, numBuf, sizeof(numBuf)), ::TTY::Color::WHITE);
+    ::TTY::putString("\n", ::TTY::Color::WHITE);
+
+    ::TTY::putString("[KOREFS] MaxEntries:             ", ::TTY::Color::WHITE);
+    ::TTY::putString(uint64ToString(header->maxEntries, numBuf, sizeof(numBuf)), ::TTY::Color::WHITE);
+    ::TTY::putString("\n", ::TTY::Color::WHITE);
+
+    ::TTY::putString("[KOREFS] ReservedRegionsBytes:   ", ::TTY::Color::WHITE);
+    ::TTY::putString(uint64ToString(header->reservedRegionsBytes, numBuf, sizeof(numBuf)), ::TTY::Color::WHITE);
+    ::TTY::putString("\n", ::TTY::Color::WHITE);
+
+    ::TTY::putString("[KOREFS] ReservedRegionSpan:     ", ::TTY::Color::WHITE);
+    ::TTY::putString(uint64ToString(header->reservedRegionSpan, numBuf, sizeof(numBuf)), ::TTY::Color::WHITE);
+    ::TTY::putString("\n", ::TTY::Color::WHITE);
+
     // Verify magic matches "KOREFS  " before confirming the header exists
     const char expectedMagic[8] = {'K', 'O', 'R', 'E', 'F', 'S', ' ', ' '};
     for (size_t i = 0; i < 8; i++)
@@ -91,10 +109,16 @@ bool Filesystem::KoreFS::writeDriveHeader()
     uint64_t sectorSize = Driver::IO::NVMe::API::getSectorSize();
 
     // Reserve some sectors for our freeRegion tracking
-    // 1GB is plenty.. (67 million btw)
-    uint64_t reservedRegionsNumber = (1 * 1024 * 1024 * 1024) / sectorSize;
-    RESERVED_FREE_REGION_SECTORS = reservedRegionsNumber;
-    uint64_t rootFolderHeaderStart = 2049 + reservedRegionsNumber;
+    // Worst case is totalSectors / 2 + 1 entries to be stored (extreme fragmentation that is)
+    // Each entry is 16 bytes, so for example, on a 512GiB 4096 sectorSize byte, 
+    // The maximum entries needed for that would be (134217728/2) + 1 entries
+    // So max entries would be: 67108865
+    // So size needed in MB: ((67108865 * 16)/1024*1024) + 32MiB fixed reservation for some shit which idk, where 16 == sizeof(FreeRegion)
+    
+    uint64_t maxEntries = (totalSectors / 2) + 1; // In the worst case free: [USED][FREE][USED][FREE][USED] and so on.
+    uint64_t reservedRegionsBytes = (maxEntries * sizeof(FreeRegion)) + (32ULL * 1024 * 1024);
+    uint64_t reservedRegionSpan = (reservedRegionsBytes + sectorSize - 1) / sectorSize;
+    uint64_t rootFolderHeaderStart = 2049 + reservedRegionSpan;
 
     uint64_t freeRegionStart = rootFolderHeaderStart + 1;
     uint64_t freeRegionSectorCount = totalSectors - freeRegionStart;
@@ -115,7 +139,10 @@ bool Filesystem::KoreFS::writeDriveHeader()
         .usedSpace = freeRegionStart * sectorSize,
         .freeSpace = freeRegionSectorCount * sectorSize, 
         .rootFolderHeaderSector = rootFolderHeaderStart,
-        .freeRegionCount = 1
+        .freeRegionCount = 1,
+        .maxEntries = maxEntries,
+        .reservedRegionsBytes = reservedRegionsBytes,
+        .reservedRegionSpan = reservedRegionSpan
         // Free region starts just after this struct
     };
 
@@ -142,10 +169,18 @@ bool Filesystem::KoreFS::writeDriveHeader()
 
 bool Filesystem::KoreFS::writeFreeRegion(FreeRegion *freeRegion, uint64_t driveHeaderStart)
 {
-    bool foundEmptySpace = false;
     uint64_t offset = driveHeaderStart + 1;
     uint64_t sectorSize = Driver::IO::NVMe::API::getSectorSize();
     uint64_t entriesPerSector = sectorSize / sizeof(FreeRegion);
+
+    std::optional<DriveHeader> driveHeader = readDriveheader();
+    if (!driveHeader.has_value())
+    {
+        ::TTY::putString("[FAIL] ", TTY::Color::RED);
+        ::TTY::putString("DriveHeader does not exist on drive!\n", TTY::Color::WHITE);
+        return false;
+    }
+
 
     uint64_t buffer = pmm_G->allocFrame();
     if (!buffer)
@@ -157,7 +192,7 @@ bool Filesystem::KoreFS::writeFreeRegion(FreeRegion *freeRegion, uint64_t driveH
     uint64_t bufferVirtual = vmm_G->physicalToVirtual(buffer);
     vmm_G->mapPage(bufferVirtual, buffer, PAGE_NX | PAGE_PRESENT | PAGE_WRITABLE);
 
-    for (uint64_t currentSector = 0; currentSector < RESERVED_FREE_REGION_SECTORS; currentSector++)
+    for (uint64_t currentSector = 0; currentSector < driveHeader.value().reservedRegionSpan; currentSector++)
     {
         Libc::Memory::kmemset((void*)bufferVirtual, 0, 4096);
         if (!Driver::IO::NVMe::API::readSectors(offset + currentSector, 1, buffer))
@@ -173,7 +208,7 @@ bool Filesystem::KoreFS::writeFreeRegion(FreeRegion *freeRegion, uint64_t driveH
         for (uint64_t i = 0; i < entriesPerSector; i++)
         {
             // When we allocate something and erase from freeRegion, we need to clear both to 0
-            if (regions[i].sectorSpan == 0 && regions[i].sectorSpan == 0) // We found empty slot
+            if (regions[i].startSector == 0 && regions[i].sectorSpan == 0) // We found empty slot
             {
                 regions[i] = *freeRegion;
 
@@ -200,8 +235,6 @@ bool Filesystem::KoreFS::writeFreeRegion(FreeRegion *freeRegion, uint64_t driveH
 
 std::optional<Filesystem::KoreFS::DriveHeader> Filesystem::KoreFS::readDriveheader()
 {
-    uint64_t sectorSize = Driver::IO::NVMe::API::getSectorSize();
-    RESERVED_FREE_REGION_SECTORS = (1ULL * 1024 * 1024 * 1024) / sectorSize;
     
     uint64_t buffer = pmm_G->allocFrame();
     

@@ -30,6 +30,11 @@ namespace Filesystem
             uint64_t freeSpace;
             uint64_t rootFolderHeaderSector;
             uint64_t freeRegionCount;
+
+            // Some info about the reserved FreeRegion storage itself
+            uint64_t maxEntries;
+            uint64_t reservedRegionsBytes;
+            uint64_t reservedRegionSpan;
         };
 
         // BEWARE not written as is to disk, explained on KoreFS.md

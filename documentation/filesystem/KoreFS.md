@@ -19,20 +19,45 @@ KoreFS is a custom filesystem specifically designed for KernOS.
 
 - LBA 0 to LBA 2047 are untouched, they are reserved for GPT headers, EFI partitions etc.
 - `DriveHeader` resides at LBA 2048, exactly 1 sector wide, this is the *heart* of KoreFS.
-- Starting from LBA 2049 and spanning to however many sectors needed, a 1 GB `FreeRegion` is reserved, whose only purpose is to track free space.
+- Starting from LBA 2049 and spanning to however many sectors needed, a flexible X-GiB `FreeRegion` is reserved, whose only purpose is to track free space.
 - Immediately after the `FreeRegion`'s sector, comes the **Root** folder's `FileMetaDataHeader`, then the `FolderDataHeader`.
 - Everything after that are the User data (including but not limited to system files).
-- Reserved sectors formula: (1GB)/sectorSize.
+- Reserved sectors formula: (reservedRegionSize)/sectorSize.
 - rootFolderSector = 2049 + reservedSectors.
 
 > [!NOTE]
 > In future, the EFI partition will need to be accomodated, hence the `2048` number is not concrete and may shift.
 
+## Size of Reserved Region Itself and 'Worst Case':
+
+- The amount of space which needs to be reserved for the **Reserved Region** itself is calculated using driveSize and sector size
+- Lets take an example:
+  - 512GiB Drive with Sector Size = 4096
+- We will now need totalSectors:
+  - totalSectors = Disk Size in bytes / sector size, SO: 549755813888 / 4096 = 134217728 sectors
+- Now before we move further, lets discuss whats `Worst Case`
+  - Assume the drive gets soo fragmented that essentially free sectors are in this order:
+  ```C++
+  [USED][FREE][USED][FREE][USED][FREE] and so on....
+  ```
+  - Now in this case, the number of entries of FreeRegion in the Reserved Region would be the maximum(Well not quite, just add +1 to the number of entries)
+  - Now maxEntries = totalSectors / 2 + 1, SO: 134217728/2 + 1 = 67108865
+  - So we need the `Reserved Region` to be big enough to hold as many entries as the worst case..
+- So now finally the bytes needed for the `Reserved Region` itself would be: 
+  ```C++
+  (maxEntries * sizeof(FreeRegion)) + (32 * 1024 * 1024);
+  ```
+  - Where sizeof(FreeRegion) == 16 bytes
+  - And your eye might have caught that we are reserving extra 32 MiB, well its just an `emergency` buffer but anyways.
+
+> [!NOTE]
+> If you weren't able to understand this or i explained shit, just open a github issue or email me: `saraswal2010@gmail.com`.
+
 ## DriveHeader:
 
 - It lives at LBA 2048 and is exactly 1 sector wide (be it 512 or 4096 bytes), its read once at startup
 - Fields:
-  ```
+  ```C++
   char magic[8]; // "KOREFS  "
   uint64_t sectorSize; // bytes 
   uint64_t driveSize; // bytes
@@ -40,6 +65,10 @@ KoreFS is a custom filesystem specifically designed for KernOS.
   uint64_t freeSpace; // bytes
   uint64_t rootFolderHeaderSector; // LBA where "FileMetadataHeader" resides
   uint64_t freeRegionCount; // Number of free regions available, set to 1 during formatting
+
+  uint64_t maxEntries; // Max entries possible in a worst case in the free region reserved region
+  uint64_t reservedRegionsBytes; // The size of that reserved region in bytes
+  uint64_t reservedRegionSpan; // Its sector span
   ```
 - Its the single source of truth
 - If it gets corrupted, shit's cooked. I plan to add some sort of backup copies in future.
@@ -48,19 +77,19 @@ KoreFS is a custom filesystem specifically designed for KernOS.
 
 - Well its similar to `extents`
 - A FreeRegion is a struct of two uint64_t fields: startSector, and sectorSpan
-- The FreeRegion table occupies reserved 1GB space starting for LBA 2049, giving 1GB / 16 bytes = ~67 million span slots (I didnt choose this number, it chose me.. Get it? the 67 meme....) its 67,108,864 to be exact.
+- The FreeRegion table occupies reserved X-GiB space starting for LBA 2049, Just divide the size in bytes by sizeof(FreeRegion) struct and you get the max entries it can store which are equal to worst case scenario.
 - Can get fragmented but I will try to take some measures, I haven't done detailed maths though.
 - **Allocation**: Scan the table for the first span with sectorSpan >= sectorsNeeded, take some sectors from its front, shrink it, if it hits zero sectors, remove it from the table and decrement `freeRegionCount` in the DriveHeader
 - **Deallocation**: If a file gets deleted, its span gets returned, if something adjacent is also free in either direction, merge those shit, otherwise create a new entry and increment `freeRegionCount` in the DriveHeader
 - **Fragmented Allocation**: The demon... Try to allocate in contiguous N sectors, if we cant find them, we need to fragment it... Calculate how many sectors (chunks) it will need, excluding the first sector where it will be stored (Because in contiguous files in KernOS, chunks = 0, I hope i made myself clear, though I doubt that I explained in a good manner) and write those into the `FileMetadataHeader`, also write the starting LBA of a chunk and the LBA span of that chunk into the array (more on this in the next section, because you may be confused) MAX_CHUNKS = 128 (hardcoded, shit is cooked when it cant find even 2 sectors which are contiguous).
-- The FreeRegion table itself is stored on the 1GB reserved block as said earlier, and updated on every allocation and deallocation (I havent decided if this will be sync or async, its still the early days)
+- The FreeRegion table itself is stored on the X-GiB reserved block as said earlier, and updated on every allocation and deallocation (I havent decided if this will be sync or async, its still the early days)
 - If the FreeRegion table tells that startSector == 0 && sectorSpan == 0, then that region is considered empty. 
 
 ## FileMetadataHeader
 
 - Every file and folder on disk starts with `FileMetadataHeader`.
 - Fields:
-  ```
+  ```C++
   char magic[8]; // "KOREFILE"
   char name[128];
   uint64_t sizeBytes; // We can just sum the children's sizes?
@@ -99,7 +128,7 @@ KoreFS is a custom filesystem specifically designed for KernOS.
 
 - Folders are just files which happen to be special (type == 1 in the `FileMetadataHeader`) and they have children btw.
 - When you go to the `dataOffset` of a folder header, you come at `FolderDataHeader` which contains:
-  ```
+  ```C++
   uint64_t childCount; // Read the name of the variable
   uint64_t childHeaderSector[]; // Contains many LBAs to "FileMetadataHeader"s
   ```
